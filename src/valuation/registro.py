@@ -18,7 +18,7 @@ import pandas as pd
 from valuation import commodities, modelo, premissas
 from valuation.b3 import MERCADO_CSV, PRECOS_CSV
 from valuation.cvm import ACOES_CSV, CONTAS_CSV
-from valuation.empresas import EMPRESAS, FOCO, POR_TICKER, RAIZ
+from valuation.empresas import EMPRESAS, FOCO, POR_TICKER, RAIZ, REPOSITORIO
 from valuation.macro import MACRO_CSV
 
 FONTES_MD = RAIZ / "FONTES.md"
@@ -319,8 +319,9 @@ Variação mensal de {_br(serie.index[0])} a {_br(ultimo_mes)}, contra o minéri
 ## Como reproduzir
 
 Este arquivo é gerado por `uv run valuation registrar`. A versão do código e dos dados desta
-data está marcada no git com a tag `analise-{dia.isoformat()}`. As fontes de cada dado estão
-em [FONTES.md](../FONTES.md).
+data está marcada no git com a tag
+[`analise-{dia.isoformat()}`]({REPOSITORIO}/tree/analise-{dia.isoformat()}). As fontes de
+cada dado estão em [FONTES.md](../FONTES.md).
 """
     ANALISES.mkdir(exist_ok=True)
     destino = ANALISES / f"{dia.isoformat()}.md"

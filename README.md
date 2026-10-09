@@ -9,6 +9,10 @@ montado só com dados públicos. Sai em dois formatos:
   contas em fórmulas. Na primeira aba escolhe-se a empresa e o cenário em duas listas e o
   arquivo inteiro recalcula. Abre no Excel e no LibreOffice.
 
+**[Abrir a página interativa](https://timmtimm1.github.io/valuation-vale-csn-gerdau/)** ·
+**[Baixar a planilha](https://github.com/timmtimm1/valuation-vale-csn-gerdau/raw/main/saida/valuation_vale_csn_gerdau.xlsx)** ·
+[fonte de cada dado](FONTES.md) · [preços no dia da análise](analises/2026-10-09.md)
+
 > Estudo acadêmico e de portfólio. Não é recomendação de compra ou venda.
 
 ## O que o modelo faz
@@ -81,6 +85,8 @@ quem quiser ver o código e os dados exatamente como estavam.
 ## Como rodar
 
 ```bash
+git clone https://github.com/timmtimm1/valuation-vale-csn-gerdau.git
+cd valuation-vale-csn-gerdau
 uv sync
 uv run valuation extrair     # baixa CVM, B3 e macro; monta dados/
 uv run valuation propor      # gera premissas/<ticker>.yaml por regra
