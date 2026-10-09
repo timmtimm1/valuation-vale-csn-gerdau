@@ -21,9 +21,6 @@ from valuation.premissas import valores
 # Saldos e fluxos do ano-base que a projeção usa como ponto de partida.
 SALDOS_BASE = (
     "receita",
-    "custo_caixa",
-    "despesas_vendas",
-    "despesas_ga",
     "contas_receber",
     "estoques",
     "fornecedores",
@@ -85,33 +82,22 @@ def projetar(base: Base, p: dict[str, Any], anos: list[int]) -> pd.DataFrame:
     colunas: dict[int, dict[str, float]] = {}
     t_ir = p["aliquota_ir"]
     for i, ano in enumerate(anos):
-        volume = 1 + p["crescimento_volume"][i]
-        custos = 1 + p["inflacao_custos"][i]
         c: dict[str, float] = {}
 
         # --- DRE
-        c["receita"] = a["receita"] * volume * (1 + p["variacao_preco"][i])
-        # Custo acompanha volume e inflação de custos, não o preço de venda: quando
-        # o minério ou o aço caem, a margem aperta.
-        c["custo_caixa"] = a["custo_caixa"] * volume * custos
-        c["despesas_vendas"] = a["despesas_vendas"] * volume * custos
-        c["despesas_ga"] = a["despesas_ga"] * custos
-        c["outras_operacionais"] = c["receita"] * p["outras_pct"][i]
+        c["receita"] = a["receita"] * (1 + p["crescimento_receita"][i])
+        # A margem EBITDA é premissa do cenário. As despesas operacionais seguem a receita
+        # e o custo dos produtos é o que sobra para a margem fechar.
+        c["ebitda"] = c["receita"] * p["margem_ebitda"][i]
+        c["despesas"] = c["receita"] * p["despesas_pct"][i]
         c["equivalencia"] = p["equivalencia"][i]
-        c["ebitda"] = (
-            c["receita"]
-            - c["custo_caixa"]
-            - c["despesas_vendas"]
-            - c["despesas_ga"]
-            + c["outras_operacionais"]
-            + c["equivalencia"]
-        )
+        c["custo_caixa"] = c["receita"] - c["despesas"] + c["equivalencia"] - c["ebitda"]
         c["da"] = a["ativo_fixo"] * p["depreciacao_pct"][i]
         c["ebit"] = c["ebitda"] - c["da"]
         # Juros sobre os saldos do início do ano: evita referência circular.
-        c["resultado_financeiro"] = (
-            a["caixa_total"] * p["rendimento_caixa"] - a["divida_bruta"] * p["custo_divida"]
-        )
+        c["receita_financeira"] = a["caixa_total"] * p["rendimento_caixa"]
+        c["despesa_financeira"] = a["divida_bruta"] * p["custo_divida"]
+        c["resultado_financeiro"] = c["receita_financeira"] - c["despesa_financeira"]
         c["lair"] = c["ebit"] + c["resultado_financeiro"]
         # Equivalência já vem líquida de imposto da investida.
         c["ir"] = max(0.0, c["lair"] - c["equivalencia"]) * t_ir
@@ -178,7 +164,17 @@ def custo_de_capital(p: dict[str, Any]) -> dict[str, float]:
     ke = p["juro_sem_risco"] + p["beta"] * p["premio_mercado"] + p["premio_adicional"]
     kd_liquido = p["custo_divida"] * (1 - p["aliquota_ir"])
     wd = p["peso_divida"]
-    return {"ke": ke, "kd_liquido": kd_liquido, "wacc": ke * (1 - wd) + kd_liquido * wd}
+    wacc_capm = ke * (1 - wd) + kd_liquido * wd
+    # O cenário desloca o custo de capital inteiro: o mesmo tanto no WACC e no Ke.
+    ajuste = p["ajuste_wacc"]
+    return {
+        "ke": ke,
+        "kd_liquido": kd_liquido,
+        "wacc_capm": wacc_capm,
+        "ajuste_wacc": ajuste,
+        "wacc": wacc_capm + ajuste,
+        "ke_usado": ke + ajuste,
+    }
 
 
 def _valor_presente(
@@ -236,7 +232,7 @@ def avaliar(
         + ultimo["captacao_liquida"]
     )
     vp_e, vp_e_terminal = _valor_presente(
-        list(proj.loc["fcfe"]), fcfe_terminal, k["ke"], g, base.fracao_ano1
+        list(proj.loc["fcfe"]), fcfe_terminal, k["ke_usado"], g, base.fracao_ano1
     )
     equity_fcfe = (
         vp_e + vp_e_terminal - ponte["minoritarios"] + ponte["investimentos"] - p["outros_ajustes"]
@@ -279,9 +275,14 @@ def sensibilidade(
     )
 
 
-def rodar(ticker: str, dados: dict[str, Any], cenario: str = "base") -> dict[str, Any]:
-    """Atalho: carrega a base, projeta e avalia um cenário."""
+def rodar(
+    ticker: str,
+    dados: dict[str, Any],
+    cenario: str = "moderado",
+    manual: dict[str, float] | None = None,
+) -> dict[str, Any]:
+    """Atalho: carrega a base, projeta e avalia um cenário (com ajuste manual, se houver)."""
     base = carregar_base(ticker, dados)
-    p = valores(dados, cenario)
+    p = valores(dados, cenario, manual)
     proj = projetar(base, p, dados["anos"])
     return {"base": base, "premissas": p, "projecao": proj, "valuation": avaliar(base, proj, p)}
