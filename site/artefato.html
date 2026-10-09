@@ -1,7 +1,7 @@
 <title>Valuation Vale, CSN e Gerdau</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
-/* Layout: painel de premissas fixo à esquerda, resultado à direita; uma coluna no celular. */
+/* Layout: painel de cenário fixo à esquerda, o estudo em seções numeradas à direita; uma coluna no celular. */
 :root {
   --bg: #eef1f4;          /* cinza-aço claro */
   --surface: #ffffff;
@@ -34,10 +34,13 @@
   --hist: #6b7786; --bad: #e66767; --warn-bg: #3a3015; --warn-ink: #f0d58a; color-scheme: dark;
 }
 * { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5; }
 .wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 56px; display: grid; gap: 24px; }
 h1 { font-family: var(--display); font-stretch: 80%; font-weight: 800; font-size: clamp(1.9rem, 4.5vw, 2.9rem); line-height: 1.02; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
-h2 { font-family: var(--display); font-stretch: 88%; font-weight: 700; font-size: 1.15rem; margin: 0; text-wrap: balance; }
+h2 { font-family: var(--display); font-stretch: 88%; font-weight: 700; font-size: 1.15rem; margin: 0; text-wrap: balance; display: flex; gap: 10px; align-items: baseline; }
+h2 .n { font-family: var(--mono); font-weight: 500; font-size: 0.8rem; color: var(--accent); min-width: 1.6em; }
 p { margin: 0; }
 .lede { color: var(--ink-2); max-width: 68ch; margin-top: 10px; }
 .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
@@ -49,43 +52,50 @@ p { margin: 0; }
 .abas button small { font-family: var(--body); font-weight: 400; font-size: 0.78rem; margin-left: 6px; color: var(--ink-3); }
 .abas button[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .abas button[aria-selected="true"] small { color: inherit; opacity: 0.7; }
-button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:focus-visible, input:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.grade { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 24px; align-items: start; }
-.painel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px; display: grid; gap: 16px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); max-height: calc(100vh - 24px); overflow-y: auto; }
-.resultado { display: grid; gap: 24px; min-width: 0; }
-@media (max-width: 900px) { .grade { grid-template-columns: minmax(0, 1fr); } .painel { position: static; max-height: none; } }
+.grade { display: grid; grid-template-columns: 310px minmax(0, 1fr); gap: 24px; align-items: start; }
+.painel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px; display: grid; gap: 18px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); max-height: calc(100vh - 24px); overflow-y: auto; }
+.resultado { display: grid; gap: 28px; min-width: 0; }
+@media (max-width: 900px) { .grade { grid-template-columns: minmax(0, 1fr); } .painel { position: static; max-height: none; } .indice { display: none; } }
 
-.cenarios { display: flex; gap: 6px; }
-.cenarios button, .limpar { font: inherit; font-size: 0.85rem; padding: 6px 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 4px; cursor: pointer; flex: 1; }
-.cenarios button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 .grupo { display: grid; gap: 12px; }
-.controle { display: grid; gap: 2px; }
-.controle label { display: flex; justify-content: space-between; gap: 8px; font-size: 0.86rem; color: var(--ink-2); }
-.controle output { color: var(--ink); font-family: var(--mono); font-size: 0.84rem; white-space: nowrap; }
+.cenarios { display: flex; gap: 6px; }
+.cenarios button, .limpar { font: inherit; font-size: 0.85rem; padding: 7px 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 4px; cursor: pointer; flex: 1; }
+.cenarios button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.controle { display: grid; gap: 3px; }
+.controle label { display: flex; justify-content: space-between; gap: 8px; font-size: 0.88rem; font-weight: 600; }
+.controle output { font-family: var(--mono); font-weight: 500; white-space: nowrap; }
 .controle input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
+.controle .escala { display: flex; justify-content: space-between; font-size: 0.74rem; color: var(--ink-3); font-family: var(--mono); }
+.nota { font-size: 0.8rem; color: var(--ink-3); line-height: 1.4; }
+.indice { display: grid; gap: 3px; border-top: 1px solid var(--line); padding-top: 14px; }
+.indice a { font-size: 0.82rem; color: var(--ink-2); text-decoration: none; display: flex; gap: 8px; }
+.indice a:hover { color: var(--accent); }
+.indice a span { font-family: var(--mono); color: var(--ink-3); min-width: 1.6em; }
 
-.destaque { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.destaque { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
 .destaque > div { padding: 16px 18px; border-right: 1px solid var(--line); display: grid; gap: 2px; align-content: start; }
 .destaque > div:last-child { border-right: 0; }
 .destaque .valor { white-space: nowrap; font-family: var(--display); font-stretch: 80%; font-weight: 700; font-size: 1.75rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .destaque .principal .valor { font-size: 2.1rem; color: var(--accent); }
 .destaque .sub { font-size: 0.8rem; color: var(--ink-3); }
-.neg { color: var(--bad); }
+.destaque .valor.neg, .neg { color: var(--bad); }
 
-.bloco { display: grid; gap: 12px; min-width: 0; }
+.bloco { display: grid; gap: 12px; min-width: 0; scroll-margin-top: 16px; }
 .bloco > p { color: var(--ink-2); font-size: 0.9rem; max-width: 75ch; }
 .cartao { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; min-width: 0; }
 .duas { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
 .rolagem { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
 th, td { padding: 6px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
-th:first-child, td:first-child { text-align: left; white-space: normal; min-width: 150px; }
+th:first-child, td:first-child { text-align: left; white-space: normal; min-width: 170px; }
 thead th { font-weight: 600; color: var(--ink-2); font-size: 0.78rem; }
 td.num, th.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 tr.forte td { font-weight: 600; }
 tr.sep td { border-top: 2px solid var(--line); }
-.proj { background: var(--accent-soft); }
+tr.titulo td { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; padding-top: 12px; }
+td.uso { background: var(--accent-soft); font-weight: 600; }
 
 svg { display: block; width: 100%; height: auto; }
 svg text { font-family: var(--body); font-size: 11px; fill: var(--ink-2); }
@@ -96,7 +106,7 @@ svg .valor-rotulo { fill: var(--ink); font-family: var(--mono); font-size: 10.5p
 
 .ponte { display: grid; gap: 6px; }
 .ponte .linha { display: grid; grid-template-columns: minmax(120px, 1.3fr) 2fr auto; gap: 10px; align-items: center; font-size: 0.88rem; }
-.ponte .barra { height: 14px; border-radius: 3px; background: var(--accent); min-width: 2px; }
+.ponte .barra { display: block; height: 14px; border-radius: 3px; background: var(--accent); min-width: 2px; }
 .ponte .menos .barra { background: var(--ore); }
 .ponte .total { font-weight: 600; border-top: 1px solid var(--line); padding-top: 6px; }
 .ponte .total .barra { background: var(--ink); }
@@ -108,8 +118,9 @@ svg .valor-rotulo { fill: var(--ink); font-family: var(--mono); font-size: 10.5p
 .sens th { text-align: center; }
 
 details { border-top: 1px solid var(--line); padding-block: 10px; }
+details:first-child { border-top: 0; padding-top: 0; }
 summary { cursor: pointer; font-weight: 600; }
-.origem { color: var(--ink-3); font-size: 0.8rem; white-space: normal; text-align: left; min-width: 220px; }
+.origem { color: var(--ink-3); font-size: 0.8rem; white-space: normal; text-align: left; min-width: 240px; }
 #dica { position: fixed; pointer-events: none; background: var(--ink); color: var(--bg); padding: 5px 9px; border-radius: 4px; font-size: 0.8rem; z-index: 10; max-width: 240px; }
 footer { color: var(--ink-3); font-size: 0.82rem; display: grid; gap: 6px; max-width: 90ch; }
 a { color: var(--accent); }
@@ -119,7 +130,7 @@ a { color: var(--accent); }
   <header>
     <p class="eyebrow">Mineração e siderurgia · B3 · R$ milhões</p>
     <h1>Quanto valem Vale, CSN e Gerdau?</h1>
-    <p class="lede">Um modelo de fluxo de caixa descontado montado só com dados públicos da CVM e da B3. Mexa nas premissas à esquerda e veja o preço por ação mudar na hora.</p>
+    <p class="lede">Um modelo de valuation montado com dados públicos da CVM e da B3. Escolha o cenário, ajuste as três variáveis dentro da faixa e veja o preço por ação mudar na hora.</p>
   </header>
 
   <p class="aviso" id="aviso"></p>
@@ -127,74 +138,120 @@ a { color: var(--accent); }
   <nav class="abas" id="abas" role="tablist" aria-label="Empresa"></nav>
 
   <div class="grade">
-    <aside class="painel" aria-label="Premissas">
+    <aside class="painel" aria-label="Cenário">
       <div class="grupo">
         <span class="eyebrow">Cenário</span>
         <div class="cenarios" id="cenarios"></div>
+        <p class="nota" id="nota-cenario"></p>
       </div>
-      <div class="grupo" id="controles-operacao"><span class="eyebrow">Operação</span></div>
-      <div class="grupo" id="controles-capital"><span class="eyebrow">Custo de capital</span></div>
-      <button class="limpar" id="limpar" type="button">Voltar às premissas originais</button>
+      <div class="grupo" id="controles"><span class="eyebrow">Ajuste manual, dentro da faixa</span></div>
+      <nav class="indice" id="indice" aria-label="Seções"><span class="eyebrow">Nesta página</span></nav>
     </aside>
 
     <main class="resultado">
       <section class="destaque" id="destaque" aria-live="polite"></section>
 
-      <section class="bloco">
-        <h2>Do valor da empresa ao preço por ação</h2>
-        <p>O valor da empresa (EV) é a soma dos fluxos de caixa futuros trazidos a valor de hoje. Tirando a dívida e a parte dos sócios minoritários, sobra o valor do acionista.</p>
-        <div class="cartao ponte" id="ponte"></div>
+      <section class="bloco" id="demonstrativos">
+        <h2><span class="n">1</span>Demonstrativos: DRE, balanço e fluxo de caixa</h2>
+        <p>O que a empresa entregou à CVM de 2018 ao último trimestre. LTM são os últimos doze meses; o balanço dessa coluna é o do trimestre.</p>
+        <div class="cartao rolagem" id="t-demonstrativos"></div>
       </section>
 
-      <section class="bloco">
-        <h2>Projeção</h2>
+      <section class="bloco" id="integracao">
+        <h2><span class="n">2</span>Como os três demonstrativos se ligam</h2>
+        <p>O lucro da DRE vira caixa depois de somar a depreciação e tirar o que foi investido e distribuído. Esse caixa fecha o balanço: se ativo e passivo não baterem, há erro no modelo.</p>
+        <div class="cartao rolagem" id="t-integracao"></div>
+      </section>
+
+      <section class="bloco" id="indicadores">
+        <h2><span class="n">3</span>EBIT, EBITDA, NOPAT e indicadores</h2>
+        <p>EBITDA é o EBIT mais a depreciação. NOPAT é o lucro operacional depois do imposto, antes dos juros. Em 2025 a Vale e a Gerdau registraram perdas por recuperabilidade que não saem do caixa; a linha sem elas é a que serve de base para a projeção.</p>
+        <div class="cartao rolagem" id="t-indicadores"></div>
+      </section>
+
+      <section class="bloco" id="projecao">
+        <h2><span class="n">4</span>Projeção: receita, custos, margens e crescimento</h2>
+        <p>A receita cresce pela taxa do cenário. A margem EBITDA sai do nível de hoje e chega à margem do cenário em 2030. As despesas operacionais seguem a receita e o custo dos produtos é o que sobra para a margem fechar.</p>
         <div class="duas">
           <div class="cartao"><span class="eyebrow">Receita líquida (R$ bilhões)</span><div id="g-receita"></div></div>
-          <div class="cartao"><span class="eyebrow">Margem EBITDA</span><div id="g-margem"></div></div>
-          <div class="cartao"><span class="eyebrow">Fluxo de caixa livre da empresa, FCFF (R$ bilhões)</span><div id="g-fcff"></div></div>
-          <div class="cartao"><span class="eyebrow">Dívida líquida / EBITDA</span><div id="g-alav"></div></div>
+          <div class="cartao"><span class="eyebrow">Margem EBITDA, sem perdas por recuperabilidade</span><div id="g-margem"></div></div>
         </div>
         <div class="legenda"><span><i style="background:var(--hist)"></i>Realizado (CVM)</span><span><i style="background:var(--accent)"></i>Projetado</span></div>
         <div class="cartao rolagem" id="t-projecao"></div>
       </section>
 
-      <section class="bloco">
-        <h2>Sensibilidade: WACC e crescimento perpétuo</h2>
-        <p>Preço por ação para cada combinação de taxa de desconto (linhas) e crescimento na perpetuidade (colunas). Azul: acima do preço de mercado. Laranja: abaixo.</p>
-        <div class="cartao rolagem" id="t-sens"></div>
+      <section class="bloco" id="giro">
+        <h2><span class="n">5</span>Capital de giro</h2>
+        <p>Dinheiro parado em contas a receber e estoques, menos o que os fornecedores financiam. Quando a receita cresce, o giro cresce junto e consome caixa.</p>
+        <div class="cartao rolagem" id="t-giro"></div>
       </section>
 
-      <section class="bloco">
-        <h2>Faixas de valor por ação</h2>
+      <section class="bloco" id="capex">
+        <h2><span class="n">6</span>Investimentos (capex) e despesas operacionais (opex)</h2>
+        <div class="cartao rolagem" id="t-capex"></div>
+      </section>
+
+      <section class="bloco" id="depreciacao">
+        <h2><span class="n">7</span>Depreciação e amortização</h2>
+        <p>O ativo fixo de cada ano é o do ano anterior, mais o capex, menos a depreciação. A depreciação é uma taxa sobre o ativo fixo do início do ano.</p>
+        <div class="cartao rolagem" id="t-depreciacao"></div>
+      </section>
+
+      <section class="bloco" id="multiplos">
+        <h2><span class="n">8</span>Valuation por múltiplos</h2>
+        <p>Quanto o mercado paga pelas comparáveis, nos últimos doze meses. A mediana das outras quatro empresas, aplicada aos números desta, dá um preço implícito.</p>
+        <div class="cartao rolagem" id="t-multiplos"></div>
+      </section>
+
+      <section class="bloco" id="dcf">
+        <h2><span class="n">9</span>Valuation por fluxo de caixa descontado (DCF)</h2>
+        <p>Cada fluxo futuro é trazido a valor de hoje pelo WACC. De 2026 conta só a parte que falta depois da data-base. Depois de 2030, o fluxo cresce para sempre à taxa g.</p>
+        <div class="cartao rolagem" id="t-dcf"></div>
+      </section>
+
+      <section class="bloco" id="fluxos">
+        <h2><span class="n">10</span>Fluxo de caixa da empresa (FCFF) e do acionista (FCFE)</h2>
+        <p>O FCFF é o caixa que sobra para credores e acionistas juntos. O FCFE é o que sobra só para o acionista, depois dos juros e da dívida nova.</p>
+        <div class="duas">
+          <div class="cartao"><span class="eyebrow">FCFF (R$ bilhões)</span><div id="g-fcff"></div></div>
+          <div class="cartao"><span class="eyebrow">FCFE (R$ bilhões)</span><div id="g-fcfe"></div></div>
+        </div>
+        <div class="cartao rolagem" id="t-fluxos"></div>
+      </section>
+
+      <section class="bloco" id="wacc">
+        <h2><span class="n">11</span>CAPM e WACC</h2>
+        <p>O CAPM dá o retorno que o acionista exige. O WACC é a média desse retorno com o custo da dívida depois do imposto. O cenário soma ou tira pontos desse WACC.</p>
+        <div class="cartao rolagem" id="t-wacc"></div>
+      </section>
+
+      <section class="bloco" id="valor">
+        <h2><span class="n">12</span>Enterprise Value e Equity Value</h2>
+        <p>O valor da empresa (EV) é a soma dos fluxos descontados. Tirando a dívida e a parte dos sócios minoritários, sobra o valor do acionista.</p>
+        <div class="cartao ponte" id="ponte"></div>
+      </section>
+
+      <section class="bloco" id="caixa">
+        <h2><span class="n">13</span>Cenários: entradas e saídas de caixa</h2>
+        <p>De onde vem e para onde vai o caixa em cada ano, no cenário em uso. Abaixo, os três cenários lado a lado.</p>
+        <div class="cartao rolagem" id="t-caixa"></div>
+        <div class="cartao rolagem" id="t-cenarios"></div>
+      </section>
+
+      <section class="bloco" id="sensibilidade">
+        <h2><span class="n">14</span>Análise de sensibilidade</h2>
+        <p>Preço por ação para cada combinação de WACC (linhas) e crescimento na perpetuidade (colunas). Azul: acima do preço de mercado. Laranja: abaixo.</p>
+        <div class="cartao rolagem" id="t-sens"></div>
         <p>O mesmo papel visto por métodos diferentes. A linha vertical é o preço de mercado.</p>
         <div class="cartao" id="g-faixas"></div>
       </section>
 
-      <section class="bloco">
-        <h2>Múltiplos das comparáveis</h2>
-        <p>Últimos doze meses. A mediana das outras quatro empresas, aplicada aos números desta, dá um preço implícito.</p>
-        <div class="cartao rolagem" id="t-multiplos"></div>
-      </section>
-
-      <section class="bloco">
-        <h2>Histórico</h2>
-        <div class="cartao rolagem" id="t-historico"></div>
-      </section>
-
-      <section class="bloco">
-        <h2>Premissas e de onde vieram</h2>
+      <section class="bloco" id="premissas">
+        <h2><span class="n">+</span>Premissas e de onde vieram</h2>
         <div class="cartao">
-          <details open><summary>Por ano</summary><div class="rolagem" id="t-prem-ano"></div></details>
-          <details><summary>Gerais</summary><div class="rolagem" id="t-prem-geral"></div></details>
-          <details><summary>Como o modelo funciona</summary>
-            <div style="display:grid;gap:8px;margin-top:8px;color:var(--ink-2);font-size:0.9rem;max-width:75ch">
-              <p>A receita cresce com volume e preço. O custo acompanha volume e inflação de custos, não o preço de venda: quando o minério ou o aço caem, a margem aperta.</p>
-              <p>FCFF = NOPAT + depreciação − capex − investimento em capital de giro. NOPAT é o EBIT sem equivalência patrimonial, depois do imposto.</p>
-              <p>Custo do capital próprio pelo CAPM: Ke = juro sem risco + beta × prêmio de mercado. WACC = média de Ke e do custo da dívida após imposto, pelos pesos de cada um.</p>
-              <p>O primeiro ano conta só pela parte que falta depois da data-base. Depois do último ano, o fluxo cresce para sempre à taxa g (Gordon), com capex igual a um múltiplo da depreciação.</p>
-              <p>Valor do acionista = EV − dívida líquida − minoritários + investimentos em coligadas (valor de balanço).</p>
-            </div>
-          </details>
+          <details open><summary>As três variáveis de cenário</summary><div class="rolagem" id="t-prem-cenario"></div></details>
+          <details><summary>Iguais nos três cenários, por ano</summary><div class="rolagem" id="t-prem-ano"></div></details>
+          <details><summary>Iguais nos três cenários, gerais</summary><div class="rolagem" id="t-prem-geral"></div></details>
         </div>
       </section>
 
@@ -223,24 +280,21 @@ const Modelo = (() => {
     let a = { ...base.ano };
     const tIr = p.aliquota_ir;
     anos.forEach((_, i) => {
-      const volume = 1 + p.crescimento_volume[i];
-      const custos = 1 + p.inflacao_custos[i];
       const c = {};
 
       // DRE
-      c.receita = a.receita * volume * (1 + p.variacao_preco[i]);
-      // Custo acompanha volume e inflação de custos, não o preço de venda.
-      c.custo_caixa = a.custo_caixa * volume * custos;
-      c.despesas_vendas = a.despesas_vendas * volume * custos;
-      c.despesas_ga = a.despesas_ga * custos;
-      c.outras_operacionais = c.receita * p.outras_pct[i];
+      c.receita = a.receita * (1 + p.crescimento_receita[i]);
+      // A margem EBITDA é premissa do cenário. As despesas operacionais seguem a receita
+      // e o custo dos produtos é o que sobra para a margem fechar.
+      c.ebitda = c.receita * p.margem_ebitda[i];
+      c.despesas = c.receita * p.despesas_pct[i];
       c.equivalencia = p.equivalencia[i];
-      c.ebitda =
-        c.receita - c.custo_caixa - c.despesas_vendas - c.despesas_ga +
-        c.outras_operacionais + c.equivalencia;
+      c.custo_caixa = c.receita - c.despesas + c.equivalencia - c.ebitda;
       c.da = a.ativo_fixo * p.depreciacao_pct[i];
       c.ebit = c.ebitda - c.da;
-      c.resultado_financeiro = a.caixa_total * p.rendimento_caixa - a.divida_bruta * p.custo_divida;
+      c.receita_financeira = a.caixa_total * p.rendimento_caixa;
+      c.despesa_financeira = a.divida_bruta * p.custo_divida;
+      c.resultado_financeiro = c.receita_financeira - c.despesa_financeira;
       c.lair = c.ebit + c.resultado_financeiro;
       c.ir = Math.max(0, c.lair - c.equivalencia) * tIr;
       c.lucro_liquido = c.lair - c.ir;
@@ -293,7 +347,17 @@ const Modelo = (() => {
     const ke = p.juro_sem_risco + p.beta * p.premio_mercado + p.premio_adicional;
     const kdLiquido = p.custo_divida * (1 - p.aliquota_ir);
     const wd = p.peso_divida;
-    return { ke, kd_liquido: kdLiquido, wacc: ke * (1 - wd) + kdLiquido * wd };
+    const waccCapm = ke * (1 - wd) + kdLiquido * wd;
+    // O cenário desloca o custo de capital inteiro: o mesmo tanto no WACC e no Ke.
+    const ajuste = p.ajuste_wacc;
+    return {
+      ke,
+      kd_liquido: kdLiquido,
+      wacc_capm: waccCapm,
+      ajuste_wacc: ajuste,
+      wacc: waccCapm + ajuste,
+      ke_usado: ke + ajuste,
+    };
   }
 
   // O primeiro ano só conta pela fração que falta; os fluxos caem no meio do período.
@@ -324,7 +388,7 @@ const Modelo = (() => {
     const fcfeTerminal =
       proj.lucro_liquido[u] - proj.equivalencia[u] + proj.da[u] - capexTerminal -
       proj.variacao_giro[u] + proj.captacao_liquida[u];
-    const [vpE, vpETerminal] = valorPresente(proj.fcfe, fcfeTerminal, k.ke, g, base.fracao_ano1);
+    const [vpE, vpETerminal] = valorPresente(proj.fcfe, fcfeTerminal, k.ke_usado, g, base.fracao_ano1);
     const equityFcfe = vpE + vpETerminal - ponte.minoritarios + ponte.investimentos - p.outros_ajustes;
     const preco = equity / base.acoes;
     return {
@@ -363,107 +427,150 @@ const Modelo = (() => {
     };
   }
 
-  return { projetar, custoDeCapital, avaliar, sensibilidade };
+  // Mesma regra de premissas.valores() no Python. `escolha` traz o valor de cada uma das
+  // três variáveis de cenário; a função prende cada valor à faixa pessimista-otimista e
+  // monta as listas por ano que o modelo lê.
+  function premissas(empresa, escolha) {
+    const cen = empresa.cenarios;
+    const n = empresa.anos.length;
+    const preso = (nome) => {
+      const [minimo, maximo] = faixa(empresa, nome);
+      return Math.min(Math.max(escolha[nome], minimo), maximo);
+    };
+    const p = structuredClone(empresa.premissas);
+    const crescimento = preso("crescimento_receita");
+    // 2026 já está quase todo realizado: parte do nível atual em qualquer cenário.
+    p.crescimento_receita = [cen.crescimento_receita.partida, ...Array(n - 1).fill(crescimento)];
+    const inicio = cen.margem_ebitda.partida;
+    const margem = preso("margem_ebitda");
+    p.margem_ebitda = Array.from({ length: n }, (_, i) => inicio + ((margem - inicio) * i) / (n - 1));
+    p.ajuste_wacc = preso("ajuste_wacc");
+    return p;
+  }
+
+  // Extremos dos três cenários: é dentro deles que o ajuste manual pode andar.
+  function faixa(empresa, nome) {
+    const c = empresa.cenarios[nome];
+    const valores = [c.pessimista, c.moderado, c.otimista];
+    return [Math.min(...valores), Math.max(...valores)];
+  }
+
+  function doCenario(empresa, cenario) {
+    return Object.fromEntries(Object.keys(empresa.cenarios).map((nome) => [nome, empresa.cenarios[nome][cenario]]));
+  }
+
+  return { projetar, custoDeCapital, avaliar, sensibilidade, premissas, faixa, doCenario };
 })();
 
 if (typeof module !== "undefined") module.exports = Modelo;
 
 </script>
 <script>
-const DADOS = {"empresas":{"VALE3":{"ticker":"VALE3","nome":"Vale","status":"proposta","data_base":"2026-06-30","ano_base":2025,"anos":[2026,2027,2028,2029,2030],"base":{"ano":{"receita":213595.0,"custo_caixa":121581.0,"despesas_vendas":0.0,"despesas_ga":3566.0,"contas_receber":12639.0,"estoques":32666.0,"fornecedores":30621.0,"ativo_fixo":289301.0,"investimentos":27674.0,"caixa_total":41629.0,"divida_bruta":103457.0,"ativo_total":476094.0,"patrimonio_liquido":188926.0,"outros_ativos":72185.0,"outros_passivos":153090.0},"ponte":{"divida_bruta":98034.0,"caixa_total":29842.0,"minoritarios":4832.0,"investimentos":27248.0},"acoes":4072.366,"preco":67.64,"fracao_ano1":0.5041095890410959},"mercado":{"data_preco":"2026-10-08","minimo_52s":58.87,"maximo_52s":90.09,"valor_de_mercado":275454.8362},"premissas":{"crescimento_volume":[0.0,0.0,0.0,0.0,0.0],"variacao_preco":[0.0209,0.043,0.038,0.0351,0.035],"inflacao_custos":[0.0206,0.043,0.038,0.0351,0.035],"outras_pct":[-0.1739,-0.148,-0.122,-0.0961,-0.0701],"equivalencia":[-1570.0,-1570.0,-1570.0,-1570.0,-1570.0],"capex_pct":[0.146,0.1449,0.1438,0.1427,0.1415],"depreciacao_pct":[0.0569,0.0569,0.0569,0.0569,0.0569],"prazo_recebimento":[21.598,21.598,21.598,21.598,21.598],"prazo_estoque":[98.067,98.067,98.067,98.067,98.067],"prazo_pagamento":[91.9277,91.9277,91.9277,91.9277,91.9277],"captacao_liquida":[0.0,0.0,0.0,0.0,0.0],"aliquota_ir":0.34,"custo_divida":0.1291,"rendimento_caixa":0.0936,"payout":0.679,"juro_sem_risco":0.1291,"beta":0.7558,"premio_mercado":0.0423,"premio_adicional":0.0,"peso_divida":0.2625,"crescimento_perpetuo":0.035,"capex_perpetuidade":1.0,"outros_ajustes":0.0},"origens":{"crescimento_volume":"Volume constante. A CVM não publica toneladas: usar o guidance da empresa.","variacao_preco":"2026: receita dos últimos 12 meses (LTM 2T26) sobre 2025. 2027 em diante: IPCA esperado no Focus (preço constante em termos reais).","inflacao_custos":"2026: custo caixa dos últimos 12 meses sobre 2025. 2027 em diante: IPCA esperado no Focus.","outras_pct":"Do nível dos últimos 12 meses até a mediana de 2021-2025.","equivalencia":"Mediana de 2021-2025, mantida.","capex_pct":"Do nível dos últimos 12 meses até a mediana de 2021-2025.","depreciacao_pct":"Mediana de 2021-2025, mantida.","captacao_liquida":"Dívida bruta mantida no nível de 2025.","prazo_recebimento":"Prazo de 2025, mantido.","prazo_estoque":"Prazo de 2025, mantido.","prazo_pagamento":"Prazo de 2025, mantido.","aliquota_ir":"Alíquota nominal: IRPJ 25% + CSLL 9%.","custo_divida":"Piso: a taxa do Tesouro prefixado de dez anos, sem spread de crédito. Custo implícito mediano 2023-2025: 17.8%.","rendimento_caixa":"Mediana 2023-2025 da receita financeira sobre o caixa médio.","payout":"Mediana 2021-2025 de dividendos pagos sobre lucro, limitada a 0-100%.","juro_sem_risco":"Tesouro prefixado de dez anos (em reais, nominal).","beta":"Regressão de 5 anos, retornos semanais contra o BOVA11, preços sem ajuste de proventos. Beta de 2 anos: 0.64.","premio_mercado":"Damodaran, mercado maduro. O risco-país já está no juro em reais.","premio_adicional":"Sem prêmio adicional.","peso_divida":"Dívida bruta do 2T26 sobre dívida mais valor de mercado.","crescimento_perpetuo":"IPCA esperado para 2030: crescimento real zero.","capex_perpetuidade":"Na perpetuidade a empresa reinveste o que deprecia.","outros_ajustes":"Nenhum. Provisões (barragens, contingências) não entram como dívida."},"cenarios":{"pessimista":{"variacao_preco":[0.0,-0.05,0.0,0.0,0.0]},"otimista":{"variacao_preco":[0.0,0.05,0.0,0.0,0.0]}},"historico":{"periodos":["2018","2019","2020","2021","2022","2023","2024","2025","LTM 2T26"],"receita":[134483.126,148639.921,208528.759,293524.0,226508.0,208066.0,206005.0,213595.0,218069.0],"ebitda":[55414.679,16990.508,68746.834,157714.0,106712.0,80572.0,71984.0,49275.0,51933.0],"ebit":[43175.744,2239.775,52067.618,141335.0,90326.0,65272.0,55459.0,31969.0,34110.0],"lucro_liquido":[25773.768,-8696.04,24902.341,121343.0,96337.0,40554.0,30431.0,11811.0,8691.0],"capex":[13978.533,14773.97,22725.636,27301.0,28184.0,29446.0,35098.0,33390.0,31848.0],"da":[12238.935,14750.733,16679.216,16379.0,16386.0,15300.0,16525.0,17306.0,17823.0],"fco":[47930.771,47283.755,75207.873,136766.0,58201.0,65905.0,50199.0,48765.0,50599.0],"divida_liquida":[37515.407,30215.638,8003.529,10472.0,41299.0,49680.0,65010.0,61828.0,68192.0],"margem_ebitda":[0.4121,0.1143,0.3297,0.5373,0.4711,0.3872,0.3494,0.2307,0.2381],"divida_liquida_ebitda":[0.677,1.7784,0.1164,0.0664,0.387,0.6166,0.9031,1.2548,1.3131],"roic":[0.1239,0.0139,0.1295,0.3145,0.1885,0.1515,0.1142,0.072,0.0753],"roe":[0.1506,-0.0413,0.1438,0.6301,0.5127,0.2091,0.1528,0.075,0.0527]}},"CSNA3":{"ticker":"CSNA3","nome":"CSN","status":"proposta","data_base":"2026-06-30","ano_base":2025,"anos":[2026,2027,2028,2029,2030],"base":{"ano":{"receita":44797.946,"custo_caixa":28253.746,"despesas_vendas":5033.148,"despesas_ga":979.164,"contas_receber":2397.033,"estoques":10455.5,"fornecedores":7162.929,"ativo_fixo":44925.294,"investimentos":8292.026,"caixa_total":15063.737,"divida_bruta":52924.547,"ativo_total":100575.369,"patrimonio_liquido":15736.35,"outros_ativos":19441.77900000001,"outros_passivos":24751.543000000005},"ponte":{"divida_bruta":53365.56,"caixa_total":14285.754,"minoritarios":3074.044,"investimentos":8810.278},"acoes":1326.0939,"preco":6.36,"fracao_ano1":0.5041095890410959},"mercado":{"data_preco":"2026-10-08","minimo_52s":4.28,"maximo_52s":10.89,"valor_de_mercado":8433.9575},"premissas":{"crescimento_volume":[0.0,0.0,0.0,0.0,0.0],"variacao_preco":[0.0069,0.043,0.038,0.0351,0.035],"inflacao_custos":[-0.0042,0.043,0.038,0.0351,0.035],"outras_pct":[-0.0767,-0.0691,-0.0616,-0.0541,-0.0465],"equivalencia":[351.131,351.131,351.131,351.131,351.131],"capex_pct":[0.1326,0.1237,0.1148,0.1059,0.097],"depreciacao_pct":[0.0983,0.0983,0.0983,0.0983,0.0983],"prazo_recebimento":[19.5303,19.5303,19.5303,19.5303,19.5303],"prazo_estoque":[135.0709,135.0709,135.0709,135.0709,135.0709],"prazo_pagamento":[92.5353,92.5353,92.5353,92.5353,92.5353],"captacao_liquida":[0.0,0.0,0.0,0.0,0.0],"aliquota_ir":0.34,"custo_divida":0.1291,"rendimento_caixa":0.0772,"payout":0.242,"juro_sem_risco":0.1291,"beta":1.483,"premio_mercado":0.0423,"premio_adicional":0.0,"peso_divida":0.8635,"crescimento_perpetuo":0.035,"capex_perpetuidade":1.0,"outros_ajustes":0.0},"origens":{"crescimento_volume":"Volume constante. A CVM não publica toneladas: usar o guidance da empresa.","variacao_preco":"2026: receita dos últimos 12 meses (LTM 2T26) sobre 2025. 2027 em diante: IPCA esperado no Focus (preço constante em termos reais).","inflacao_custos":"2026: custo caixa dos últimos 12 meses sobre 2025. 2027 em diante: IPCA esperado no Focus.","outras_pct":"Do nível dos últimos 12 meses até a mediana de 2021-2025.","equivalencia":"Mediana de 2021-2025, mantida.","capex_pct":"Do nível dos últimos 12 meses até a mediana de 2021-2025.","depreciacao_pct":"Mediana de 2021-2025, mantida.","captacao_liquida":"Dívida bruta mantida no nível de 2025.","prazo_recebimento":"Prazo de 2025, mantido.","prazo_estoque":"Prazo de 2025, mantido.","prazo_pagamento":"Prazo de 2025, mantido.","aliquota_ir":"Alíquota nominal: IRPJ 25% + CSLL 9%.","custo_divida":"Piso: a taxa do Tesouro prefixado de dez anos, sem spread de crédito. Custo implícito mediano 2023-2025: 14.2%.","rendimento_caixa":"Mediana 2023-2025 da receita financeira sobre o caixa médio.","payout":"Mediana 2021-2025 de dividendos pagos sobre lucro, limitada a 0-100%.","juro_sem_risco":"Tesouro prefixado de dez anos (em reais, nominal).","beta":"Regressão de 5 anos, retornos semanais contra o BOVA11, preços sem ajuste de proventos. Beta de 2 anos: 1.48.","premio_mercado":"Damodaran, mercado maduro. O risco-país já está no juro em reais.","premio_adicional":"Sem prêmio adicional.","peso_divida":"Dívida bruta do 2T26 sobre dívida mais valor de mercado.","crescimento_perpetuo":"IPCA esperado para 2030: crescimento real zero.","capex_perpetuidade":"Na perpetuidade a empresa reinveste o que deprecia.","outros_ajustes":"Nenhum. Provisões (barragens, contingências) não entram como dívida."},"cenarios":{"pessimista":{"variacao_preco":[0.0,-0.05,0.0,0.0,0.0]},"otimista":{"variacao_preco":[0.0,0.05,0.0,0.0,0.0]}},"historico":{"periodos":["2018","2019","2020","2021","2022","2023","2024","2025","LTM 2T26"],"receita":[22968.885,25436.417,30064.02,47912.039,44362.12,45437.95,43687.46,44797.946,45106.972],"ebitda":[8219.581,5061.248,8231.165,22752.368,10511.693,8558.822,8056.077,8967.149,7727.263],"ebit":[6946.56,3541.917,5714.437,20539.962,7641.462,5186.749,4270.022,4816.674,3345.416],"lucro_liquido":[5200.583,2244.511,4292.618,13595.621,2167.698,402.649,-1538.141,-1506.726,-1972.858],"capex":[1319.302,2215.883,1683.839,2864.707,3352.21,4408.119,5494.335,5935.897,5981.896],"da":[1273.021,1519.331,2516.728,2212.406,2870.231,3372.073,3786.055,4150.475,4381.847],"fco":[2208.105,4871.879,9576.874,14793.263,2042.793,7292.608,8650.505,-973.179,-245.0],"divida_liquida":[25683.357,24244.908,21542.705,13216.31,27470.901,27279.853,32693.046,37860.81,39079.806],"margem_ebitda":[0.3579,0.199,0.2738,0.4749,0.237,0.1884,0.1844,0.2002,0.1713],"divida_liquida_ebitda":[3.1247,4.7903,2.6172,0.5809,2.6134,3.1873,4.0582,4.2222,5.0574],"roic":[0.1553,0.0721,0.1246,0.3703,0.1084,0.0733,0.0535,0.056,0.0384],"roe":[0.5831,0.1758,0.3827,0.6034,0.0797,-0.0182,-0.2112,-0.1555,-0.2159]}},"GGBR4":{"ticker":"GGBR4","nome":"Gerdau","status":"proposta","data_base":"2026-06-30","ano_base":2025,"anos":[2026,2027,2028,2029,2030],"base":{"ano":{"receita":69858.532,"custo_caixa":58207.454,"despesas_vendas":782.351,"despesas_ga":1338.443,"contas_receber":4810.64,"estoques":14731.081,"fornecedores":5009.671,"ativo_fixo":44599.387,"investimentos":3944.474,"caixa_total":6374.797,"divida_bruta":14182.151,"ativo_total":81688.175,"patrimonio_liquido":53798.489,"outros_ativos":7227.796000000002,"outros_passivos":8697.864000000001},"ponte":{"divida_bruta":13558.089,"caixa_total":5440.494,"minoritarios":190.194,"investimentos":3700.806},"acoes":1963.1806,"preco":24.77,"fracao_ano1":0.5041095890410959},"mercado":{"data_preco":"2026-10-08","minimo_52s":17.35,"maximo_52s":26.31,"valor_de_mercado":46089.0479},"premissas":{"crescimento_volume":[0.0,0.0,0.0,0.0,0.0],"variacao_preco":[-0.0045,0.043,0.038,0.0351,0.035],"inflacao_custos":[-0.0253,0.043,0.038,0.0351,0.035],"outras_pct":[-0.0319,-0.0238,-0.0157,-0.0076,0.0004],"equivalencia":[563.158,563.158,563.158,563.158,563.158],"capex_pct":[0.0779,0.0773,0.0767,0.0762,0.0756],"depreciacao_pct":[0.0887,0.0887,0.0887,0.0887,0.0887],"prazo_recebimento":[25.1348,25.1348,25.1348,25.1348,25.1348],"prazo_estoque":[92.3738,92.3738,92.3738,92.3738,92.3738],"prazo_pagamento":[31.414,31.414,31.414,31.414,31.414],"captacao_liquida":[0.0,0.0,0.0,0.0,0.0],"aliquota_ir":0.34,"custo_divida":0.1291,"rendimento_caixa":0.1235,"payout":0.3602,"juro_sem_risco":0.1291,"beta":0.801,"premio_mercado":0.0423,"premio_adicional":0.0,"peso_divida":0.2273,"crescimento_perpetuo":0.035,"capex_perpetuidade":1.0,"outros_ajustes":0.0},"origens":{"crescimento_volume":"Volume constante. A CVM não publica toneladas: usar o guidance da empresa.","variacao_preco":"2026: receita dos últimos 12 meses (LTM 2T26) sobre 2025. 2027 em diante: IPCA esperado no Focus (preço constante em termos reais).","inflacao_custos":"2026: custo caixa dos últimos 12 meses sobre 2025. 2027 em diante: IPCA esperado no Focus.","outras_pct":"Do nível dos últimos 12 meses até a mediana de 2021-2025.","equivalencia":"Mediana de 2021-2025, mantida.","capex_pct":"Do nível dos últimos 12 meses até a mediana de 2021-2025.","depreciacao_pct":"Mediana de 2021-2025, mantida.","captacao_liquida":"Dívida bruta mantida no nível de 2025.","prazo_recebimento":"Prazo de 2025, mantido.","prazo_estoque":"Prazo de 2025, mantido.","prazo_pagamento":"Prazo de 2025, mantido.","aliquota_ir":"Alíquota nominal: IRPJ 25% + CSLL 9%.","custo_divida":"Piso: a taxa do Tesouro prefixado de dez anos, sem spread de crédito. Custo implícito mediano 2023-2025: 19.3%.","rendimento_caixa":"Mediana 2023-2025 da receita financeira sobre o caixa médio.","payout":"Mediana 2021-2025 de dividendos pagos sobre lucro, limitada a 0-100%.","juro_sem_risco":"Tesouro prefixado de dez anos (em reais, nominal).","beta":"Regressão de 5 anos, retornos semanais contra o BOVA11, preços sem ajuste de proventos. Beta de 2 anos: 0.71.","premio_mercado":"Damodaran, mercado maduro. O risco-país já está no juro em reais.","premio_adicional":"Sem prêmio adicional.","peso_divida":"Dívida bruta do 2T26 sobre dívida mais valor de mercado.","crescimento_perpetuo":"IPCA esperado para 2030: crescimento real zero.","capex_perpetuidade":"Na perpetuidade a empresa reinveste o que deprecia.","outros_ajustes":"Nenhum. Provisões (barragens, contingências) não entram como dívida."},"cenarios":{"pessimista":{"variacao_preco":[0.0,-0.05,0.0,0.0,0.0]},"otimista":{"variacao_preco":[0.0,0.05,0.0,0.0,0.0]}},"historico":{"periodos":["2018","2019","2020","2021","2022","2023","2024","2025","LTM 2T26"],"receita":[46159.478,39644.01,43814.661,78345.081,82412.21,68916.447,67026.656,69858.532,69543.739],"ebitda":[5939.04,5258.229,7636.22,23538.931,20650.692,13583.275,10613.449,7422.653,8730.516],"ebit":[4047.226,3183.934,5194.385,21023.022,17751.453,10452.727,7487.202,3739.068,5034.141],"lucro_liquido":[2326.382,1216.887,2388.054,15558.938,11479.552,7536.983,4599.062,1418.438,2275.538],"capex":[1194.934,1746.6,1650.778,3026.023,4291.873,5209.128,5778.381,6681.62,5415.708],"da":[1891.814,2074.295,2441.835,2515.909,2899.239,3130.548,3126.247,3683.585,3696.375],"fco":[1999.683,1642.792,6407.906,12516.933,11150.338,11138.71,11381.243,7987.454,9116.445],"divida_liquida":[11557.1,9755.266,9857.004,7252.827,7172.392,5549.566,5359.641,7807.354,8117.595],"margem_ebitda":[0.1287,0.1326,0.1743,0.3005,0.2506,0.1971,0.1583,0.1063,0.1255],"divida_liquida_ebitda":[1.946,1.8552,1.2908,0.3081,0.3473,0.4086,0.505,1.0518,0.9298],"roic":[0.079,0.0633,0.087,0.2885,0.2207,0.1284,0.076,0.0407,0.0531],"roe":[0.0895,0.0447,0.0767,0.3637,0.2478,0.1529,0.0788,0.0259,0.0418]}}},"rotulos":{"crescimento_volume":"Crescimento do volume vendido","variacao_preco":"Variação do preço médio de venda","inflacao_custos":"Inflação dos custos e despesas","outras_pct":"Outras receitas/despesas operacionais (% da receita)","equivalencia":"Equivalência patrimonial (R$ milhões)","capex_pct":"Investimento - capex (% da receita)","depreciacao_pct":"Depreciação (% do ativo fixo inicial)","prazo_recebimento":"Prazo médio de recebimento (dias)","prazo_estoque":"Prazo médio de estoque (dias)","prazo_pagamento":"Prazo médio de pagamento (dias)","captacao_liquida":"Captação líquida de dívida (R$ milhões)","aliquota_ir":"Alíquota de IR e CSLL","custo_divida":"Custo da dívida antes do imposto (Kd)","rendimento_caixa":"Rendimento do caixa","payout":"Dividendos (% do lucro)","juro_sem_risco":"Juro sem risco (Rf)","beta":"Beta","premio_mercado":"Prêmio de risco de mercado","premio_adicional":"Prêmio adicional (tamanho, risco específico)","peso_divida":"Peso da dívida na estrutura de capital","crescimento_perpetuo":"Crescimento na perpetuidade (g)","capex_perpetuidade":"Capex na perpetuidade (múltiplo da depreciação)","outros_ajustes":"Outros passivos tratados como dívida (R$ milhões)"},"multiplos":[{"ticker":"VALE3","empresa":"Vale","setor":"Mineração","preco":67.64,"acoes":4072.366,"valor_de_mercado":275454.8362,"divida_liquida":68192.0,"minoritarios":4832.0,"ev":348478.8362,"ebitda":51933.0,"ebit":34110.0,"lucro":10369.0,"patrimonio":196635.0,"ev_ebitda":6.7101618663,"ev_ebit":10.21632472,"p_l":26.5652267528,"p_vp":1.4008433707},{"ticker":"CSNA3","empresa":"CSN","setor":"Siderurgia","preco":6.36,"acoes":1326.0939,"valor_de_mercado":8433.9575,"divida_liquida":39079.806,"minoritarios":3074.044,"ev":50587.8075,"ebitda":7727.263,"ebit":3345.416,"lucro":-2626.882,"patrimonio":12166.332,"ev_ebitda":6.5466656823,"ev_ebit":15.121529729,"p_l":null,"p_vp":0.6932210546},{"ticker":"GGBR4","empresa":"Gerdau","setor":"Siderurgia","preco":24.77,"acoes":1963.1806,"valor_de_mercado":46089.0479,"divida_liquida":8117.595,"minoritarios":190.194,"ev":54396.8369,"ebitda":8730.516,"ebit":5034.141,"lucro":2237.081,"patrimonio":53544.554,"ev_ebitda":6.2306554275,"ev_ebit":10.8055846866,"p_l":20.6023152045,"p_vp":0.8607607022},{"ticker":"USIM5","empresa":"Usiminas","setor":"Siderurgia","preco":7.21,"acoes":1230.9427,"valor_de_mercado":8625.6879,"divida_liquida":-599.249,"minoritarios":2893.937,"ev":10920.3759,"ebitda":164.986,"ebit":-982.31,"lucro":-2320.418,"patrimonio":20751.154,"ev_ebitda":66.1897124605,"ev_ebit":-11.1170362716,"p_l":null,"p_vp":0.415672685},{"ticker":"CMIN3","empresa":"CSN Mineração","setor":"Mineração","preco":5.06,"acoes":5402.4354,"valor_de_mercado":27336.3233,"divida_liquida":1025.104,"minoritarios":0.19,"ev":28361.6173,"ebitda":6003.736,"ebit":4642.024,"lucro":2333.063,"patrimonio":7339.411,"ev_ebitda":4.7239947426,"ev_ebit":6.1097524054,"p_l":11.716924618,"p_vp":3.7245936084}],"implicitos":[{"ticker":"VALE3","multiplo":"ev_ebitda","mediana_pares":6.3886605549,"base":51933.0,"preco_implicito":63.5400424707},{"ticker":"VALE3","multiplo":"ev_ebit","mediana_pares":8.457668546,"base":34110.0,"preco_implicito":52.9095553064},{"ticker":"VALE3","multiplo":"p_l","mediana_pares":16.1596199112,"base":10369.0,"preco_implicito":41.1453928403},{"ticker":"VALE3","multiplo":"p_vp","mediana_pares":0.7769908784,"base":196635.0,"preco_implicito":37.5171586682},{"ticker":"CSNA3","multiplo":"ev_ebitda","mediana_pares":6.4704086469,"base":7727.263,"preco_implicito":5.9156439312},{"ticker":"CSNA3","multiplo":"ev_ebit","mediana_pares":8.1630385627,"base":3345.416,"preco_implicito":-11.1945995556},{"ticker":"CSNA3","multiplo":"p_l","mediana_pares":20.6023152045,"base":-2626.882,"preco_implicito":null},{"ticker":"CSNA3","multiplo":"p_vp","mediana_pares":1.1308020365,"base":12166.332,"preco_implicito":10.3746144989},{"ticker":"GGBR4","multiplo":"ev_ebitda","mediana_pares":6.6284137743,"base":8730.516,"preco_implicito":25.2456057842},{"ticker":"GGBR4","multiplo":"ev_ebit","mediana_pares":8.1630385627,"base":5034.141,"preco_implicito":16.7005002562},{"ticker":"GGBR4","multiplo":"p_l","mediana_pares":19.1410756854,"base":2237.081,"preco_implicito":21.8116136312},{"ticker":"GGBR4","multiplo":"p_vp","mediana_pares":1.0470322127,"base":53544.554,"preco_implicito":28.557165271}],"macro":[{"indicador":"juro_prefixado_longo","valor":0.1291,"data":"2026-10-08","detalhe":"Tesouro Prefixado com Juros Semestrais 2037"},{"indicador":"juro_real_longo","valor":0.0685,"data":"2026-10-08","detalhe":"Tesouro IPCA+ com Juros Semestrais 2037"},{"indicador":"ipca_2026","valor":0.050129,"data":"2026-10-02","detalhe":"Focus, mediana de 144 instituições"},{"indicador":"ipca_2027","valor":0.043007,"data":"2026-10-02","detalhe":"Focus, mediana de 144 instituições"},{"indicador":"ipca_2028","valor":0.038007,"data":"2026-10-02","detalhe":"Focus, mediana de 118 instituições"},{"indicador":"ipca_2029","valor":0.035108,"data":"2026-10-02","detalhe":"Focus, mediana de 110 instituições"},{"indicador":"ipca_2030","valor":0.035,"data":"2026-10-02","detalhe":"Focus, mediana de 105 instituições"},{"indicador":"premio_mercado_maduro","valor":0.0423,"data":"2026-02-16","detalhe":"Prêmio de risco de mercado maduro (total do Brasil menos risco-país)"},{"indicador":"premio_risco_brasil","valor":0.03241,"data":"2026-02-16","detalhe":"Risco-país pelo rating Ba1"}]};
+const DADOS = {"empresas":{"VALE3":{"ticker":"VALE3","nome":"Vale","status":"proposta","data_base":"2026-06-30","ano_base":2025,"anos":[2026,2027,2028,2029,2030],"base":{"ano":{"receita":213595.0,"contas_receber":12639.0,"estoques":32666.0,"fornecedores":30621.0,"ativo_fixo":289301.0,"investimentos":27674.0,"caixa_total":41629.0,"divida_bruta":103457.0,"ativo_total":476094.0,"patrimonio_liquido":188926.0,"outros_ativos":72185.0,"outros_passivos":153090.0},"ponte":{"divida_bruta":98034.0,"caixa_total":29842.0,"minoritarios":4832.0,"investimentos":27248.0},"acoes":4072.366,"preco":67.64,"fracao_ano1":0.5041095890410959},"mercado":{"data_preco":"2026-10-08","minimo_52s":58.87,"maximo_52s":90.09,"valor_de_mercado":275454.8362},"premissas":{"despesas_pct":[0.083,0.0815,0.08,0.0785,0.077],"equivalencia":[-1570.0,-1570.0,-1570.0,-1570.0,-1570.0],"capex_pct":[0.146,0.1449,0.1438,0.1427,0.1415],"depreciacao_pct":[0.0569,0.0569,0.0569,0.0569,0.0569],"prazo_recebimento":[21.598,21.598,21.598,21.598,21.598],"prazo_estoque":[98.067,98.067,98.067,98.067,98.067],"prazo_pagamento":[91.9277,91.9277,91.9277,91.9277,91.9277],"captacao_liquida":[0.0,0.0,0.0,0.0,0.0],"aliquota_ir":0.34,"custo_divida":0.1291,"rendimento_caixa":0.0936,"payout":0.679,"juro_sem_risco":0.1291,"beta":0.7558,"premio_mercado":0.0423,"premio_adicional":0.0,"peso_divida":0.2625,"crescimento_perpetuo":0.035,"capex_perpetuidade":1.0,"outros_ajustes":0.0,"crescimento_receita":[0.0209,0.0378,0.0378,0.0378,0.0378],"margem_ebitda":[0.3459,0.357825,0.36975,0.381675,0.3936],"ajuste_wacc":0.0},"origens":{"despesas_pct":"Vendas, administrativas e outras, sem perdas por recuperabilidade. Do nível dos últimos 12 meses até a mediana de 2021-2025.","equivalencia":"Mediana de 2021-2025, mantida.","capex_pct":"Do nível dos últimos 12 meses até a mediana de 2021-2025.","depreciacao_pct":"Mediana de 2021-2025, mantida.","prazo_recebimento":"Prazo de 2025, mantido.","prazo_estoque":"Prazo de 2025, mantido.","prazo_pagamento":"Prazo de 2025, mantido.","captacao_liquida":"Dívida bruta mantida no nível de 2025.","aliquota_ir":"Alíquota nominal: IRPJ 25% + CSLL 9%.","custo_divida":"Piso: a taxa do Tesouro prefixado de dez anos, sem spread de crédito. Custo implícito mediano 2023-2025: 17.8%.","rendimento_caixa":"Mediana 2023-2025 da receita financeira sobre o caixa médio.","payout":"Mediana 2021-2025 de dividendos pagos sobre lucro, limitada a 0-100%.","juro_sem_risco":"Tesouro prefixado de dez anos (em reais, nominal).","beta":"Regressão de 5 anos, retornos semanais contra o BOVA11, preços sem ajuste de proventos. Beta de 2 anos: 0.64.","premio_mercado":"Damodaran, mercado maduro. O risco-país já está no juro em reais.","premio_adicional":"Sem prêmio adicional.","peso_divida":"Dívida bruta do 2T26 sobre dívida mais valor de mercado.","crescimento_perpetuo":"IPCA esperado para 2030: crescimento real zero.","capex_perpetuidade":"Na perpetuidade a empresa reinveste o que deprecia.","outros_ajustes":"Nenhum. Provisões (barragens, contingências) não entram como dívida.","crescimento_receita":"2026: nível dos últimos 12 meses (LTM 2T26). Pessimista: receita parada, ou seja, queda real. Moderado: inflação esperada no Focus para 2027-2030, crescimento real zero. Otimista: crescimento médio da receita de 2018 a 2025 (6.8% ao ano).","margem_ebitda":"2026: nível dos últimos 12 meses (LTM 2T26). Daí até 2030 em linha reta. Faixa: margem EBITDA de 2021 a 2025, sem perdas por recuperabilidade. Pessimista é o segundo pior ano, moderado a mediana e otimista o segundo melhor.","ajuste_wacc":"Moderado: o WACC que sai do CAPM. O juro prefixado longo andou de 12.2% a 15.3% nos últimos dois anos; pessimista e otimista deslocam o WACC em metade dessa amplitude."},"cenarios":{"crescimento_receita":{"partida":0.0209,"pessimista":0.0,"moderado":0.0378,"otimista":0.0683,"origem":"2026: nível dos últimos 12 meses (LTM 2T26). Pessimista: receita parada, ou seja, queda real. Moderado: inflação esperada no Focus para 2027-2030, crescimento real zero. Otimista: crescimento médio da receita de 2018 a 2025 (6.8% ao ano)."},"margem_ebitda":{"partida":0.3459,"pessimista":0.3484,"moderado":0.3936,"otimista":0.4542,"origem":"2026: nível dos últimos 12 meses (LTM 2T26). Daí até 2030 em linha reta. Faixa: margem EBITDA de 2021 a 2025, sem perdas por recuperabilidade. Pessimista é o segundo pior ano, moderado a mediana e otimista o segundo melhor."},"ajuste_wacc":{"pessimista":0.0156,"moderado":0.0,"otimista":-0.0156,"origem":"Moderado: o WACC que sai do CAPM. O juro prefixado longo andou de 12.2% a 15.3% nos últimos dois anos; pessimista e otimista deslocam o WACC em metade dessa amplitude."}},"historico":{"periodos":["2018","2019","2020","2021","2022","2023","2024","2025","LTM 2T26"],"receita":[134483.126,148639.921,208528.759,293524.0,226508.0,208066.0,206005.0,213595.0,218069.0],"custo":[-81200.904,-83835.563,-98567.494,-117267.0,-124195.0,-120016.0,-131318.0,-138887.0,-141911.0],"lucro_bruto":[53282.222,64804.358,109961.265,176257.0,102313.0,88050.0,74687.0,74708.0,76158.0],"despesas_operacionais":[-10106.478,-62564.583,-57893.647,-34922.0,-11987.0,-22778.0,-19228.0,-42739.0,-42048.0],"ebit":[43175.744,2239.775,52067.618,141335.0,90326.0,65272.0,55459.0,31969.0,34110.0],"resultado_financeiro":[-18057.519,-13444.786,-24140.63,17812.0,11378.0,-9718.0,-21235.0,-5276.0,-9699.0],"lucro_liquido":[25773.768,-8696.04,24902.341,121343.0,96337.0,40554.0,30431.0,11811.0,8691.0],"ativo_total":[341714.838,369670.328,478129.515,499128.0,453387.0,455984.0,496325.0,476094.0,462161.0],"caixa_total":[22412.547,29627.092,70085.566,66437.0,25031.0,17724.0,31002.0,41629.0,29842.0],"capital_de_giro":[15276.204,12155.967,30840.693,26876.0,22645.0,17473.0,16896.0,14684.0,13845.0],"ativo_fixo":[218331.891,221990.131,262144.264,284282.0,287893.0,290611.0,312699.0,289301.0,288963.0],"divida_bruta":[59927.954,59842.73,78089.095,76909.0,66330.0,67404.0,96012.0,103457.0,98034.0],"patrimonio_liquido":[173682.178,157149.353,180985.984,197058.0,194894.0,198325.0,213720.0,188926.0,201467.0],"fco":[47930.771,47283.755,75207.873,136766.0,58201.0,65905.0,50199.0,48765.0,50599.0],"capex":[13978.533,14773.97,22725.636,27301.0,28184.0,29446.0,35098.0,33390.0,31848.0],"dividendos_pagos":[13050.573,695.071,18708.953,73287.0,34157.0,27967.0,20663.0,19971.0,23071.0],"fcl_simples":[33952.238,32509.785,52482.237,109465.0,30017.0,36459.0,15101.0,15375.0,18751.0],"da":[12238.935,14750.733,16679.216,16379.0,16386.0,15300.0,16525.0,17306.0,17823.0],"ebitda":[55414.679,16990.508,68746.834,157714.0,106712.0,80572.0,71984.0,49275.0,51933.0],"ebitda_recorrente":[58938.137,37752.879,80565.626,160066.0,102879.0,81889.0,71474.0,74422.0,75423.0],"nopat":[28953.6918,3249.6275,37952.3417,97866.12,58548.6,46665.96,37639.14,21871.74,22811.58],"crescimento_receita":[null,0.1053,0.4029,0.4076,-0.2283,-0.0814,-0.0099,0.0368,0.0209],"margem_bruta":[0.3962,0.436,0.5273,0.6005,0.4517,0.4232,0.3625,0.3498,0.3492],"margem_ebitda":[0.4121,0.1143,0.3297,0.5373,0.4711,0.3872,0.3494,0.2307,0.2381],"margem_ebitda_recorrente":[0.4383,0.254,0.3864,0.5453,0.4542,0.3936,0.347,0.3484,0.3459],"margem_liquida":[0.1917,-0.0585,0.1194,0.4134,0.4253,0.1949,0.1477,0.0553,0.0399],"divida_liquida":[37515.407,30215.638,8003.529,10472.0,41299.0,49680.0,65010.0,61828.0,68192.0],"divida_liquida_ebitda":[0.677,1.7784,0.1164,0.0664,0.387,0.6166,0.9031,1.2548,1.3131],"roic":[0.1239,0.0139,0.1295,0.3145,0.1885,0.1515,0.1142,0.072,0.0753],"roe":[0.1506,-0.0413,0.1438,0.6301,0.5127,0.2091,0.1528,0.075,0.0527],"prazo_recebimento":[31.6734,28.1983,47.6691,27.1583,36.3166,35.6411,25.8683,21.598,22.653],"prazo_estoque":[91.1201,91.024,94.0612,88.381,79.176,79.0503,90.661,98.067,95.3739],"prazo_pagamento":[72.0331,87.4699,77.9846,70.1614,78.8104,88.9634,83.3605,91.9277,94.4591],"ciclo_caixa":[50.7604,31.7524,63.7456,45.3779,36.6823,25.728,33.1687,27.7374,23.5678],"capex_pct":[0.1039,0.0994,0.109,0.093,0.1244,0.1415,0.1704,0.1563,0.146],"despesas_pct":[0.0438,0.2632,0.1949,0.0873,0.077,0.077,0.0882,0.0769,0.083]}},"CSNA3":{"ticker":"CSNA3","nome":"CSN","status":"proposta","data_base":"2026-06-30","ano_base":2025,"anos":[2026,2027,2028,2029,2030],"base":{"ano":{"receita":44797.946,"contas_receber":2397.033,"estoques":10455.5,"fornecedores":7162.929,"ativo_fixo":44925.294,"investimentos":8292.026,"caixa_total":15063.737,"divida_bruta":52924.547,"ativo_total":100575.369,"patrimonio_liquido":15736.35,"outros_ativos":19441.77900000001,"outros_passivos":24751.543000000005},"ponte":{"divida_bruta":53365.56,"caixa_total":14285.754,"minoritarios":3074.044,"investimentos":8810.278},"acoes":1326.0939,"preco":6.36,"fracao_ano1":0.5041095890410959},"mercado":{"data_preco":"2026-10-08","minimo_52s":4.28,"maximo_52s":10.89,"valor_de_mercado":8433.9575},"premissas":{"despesas_pct":[0.2146,0.2001,0.1857,0.1713,0.1569],"equivalencia":[351.131,351.131,351.131,351.131,351.131],"capex_pct":[0.1326,0.1237,0.1148,0.1059,0.097],"depreciacao_pct":[0.0983,0.0983,0.0983,0.0983,0.0983],"prazo_recebimento":[19.5303,19.5303,19.5303,19.5303,19.5303],"prazo_estoque":[135.0709,135.0709,135.0709,135.0709,135.0709],"prazo_pagamento":[92.5353,92.5353,92.5353,92.5353,92.5353],"captacao_liquida":[0.0,0.0,0.0,0.0,0.0],"aliquota_ir":0.34,"custo_divida":0.1291,"rendimento_caixa":0.0772,"payout":0.242,"juro_sem_risco":0.1291,"beta":1.483,"premio_mercado":0.0423,"premio_adicional":0.0,"peso_divida":0.8635,"crescimento_perpetuo":0.035,"capex_perpetuidade":1.0,"outros_ajustes":0.0,"crescimento_receita":[0.0069,0.0378,0.0378,0.0378,0.0378],"margem_ebitda":[0.1713,0.178525,0.18575,0.192975,0.2002],"ajuste_wacc":0.0},"origens":{"despesas_pct":"Vendas, administrativas e outras, sem perdas por recuperabilidade. Do nível dos últimos 12 meses até a mediana de 2021-2025.","equivalencia":"Mediana de 2021-2025, mantida.","capex_pct":"Do nível dos últimos 12 meses até a mediana de 2021-2025.","depreciacao_pct":"Mediana de 2021-2025, mantida.","prazo_recebimento":"Prazo de 2025, mantido.","prazo_estoque":"Prazo de 2025, mantido.","prazo_pagamento":"Prazo de 2025, mantido.","captacao_liquida":"Dívida bruta mantida no nível de 2025.","aliquota_ir":"Alíquota nominal: IRPJ 25% + CSLL 9%.","custo_divida":"Piso: a taxa do Tesouro prefixado de dez anos, sem spread de crédito. Custo implícito mediano 2023-2025: 14.2%.","rendimento_caixa":"Mediana 2023-2025 da receita financeira sobre o caixa médio.","payout":"Mediana 2021-2025 de dividendos pagos sobre lucro, limitada a 0-100%.","juro_sem_risco":"Tesouro prefixado de dez anos (em reais, nominal).","beta":"Regressão de 5 anos, retornos semanais contra o BOVA11, preços sem ajuste de proventos. Beta de 2 anos: 1.48.","premio_mercado":"Damodaran, mercado maduro. O risco-país já está no juro em reais.","premio_adicional":"Sem prêmio adicional.","peso_divida":"Dívida bruta do 2T26 sobre dívida mais valor de mercado.","crescimento_perpetuo":"IPCA esperado para 2030: crescimento real zero.","capex_perpetuidade":"Na perpetuidade a empresa reinveste o que deprecia.","outros_ajustes":"Nenhum. Provisões (barragens, contingências) não entram como dívida.","crescimento_receita":"2026: nível dos últimos 12 meses (LTM 2T26). Pessimista: receita parada, ou seja, queda real. Moderado: inflação esperada no Focus para 2027-2030, crescimento real zero. Otimista: crescimento médio da receita de 2018 a 2025 (10.0% ao ano), limitado a 4% acima da inflação porque parte veio de aquisições.","margem_ebitda":"2026: nível dos últimos 12 meses (LTM 2T26). Daí até 2030 em linha reta. Faixa: margem EBITDA de 2021 a 2025, sem perdas por recuperabilidade. Pessimista é o segundo pior ano, moderado a mediana e otimista o segundo melhor.","ajuste_wacc":"Moderado: o WACC que sai do CAPM. O juro prefixado longo andou de 12.2% a 15.3% nos últimos dois anos; pessimista e otimista deslocam o WACC em metade dessa amplitude."},"cenarios":{"crescimento_receita":{"partida":0.0069,"pessimista":0.0,"moderado":0.0378,"otimista":0.0778,"origem":"2026: nível dos últimos 12 meses (LTM 2T26). Pessimista: receita parada, ou seja, queda real. Moderado: inflação esperada no Focus para 2027-2030, crescimento real zero. Otimista: crescimento médio da receita de 2018 a 2025 (10.0% ao ano), limitado a 4% acima da inflação porque parte veio de aquisições."},"margem_ebitda":{"partida":0.1713,"pessimista":0.1884,"moderado":0.2002,"otimista":0.237,"origem":"2026: nível dos últimos 12 meses (LTM 2T26). Daí até 2030 em linha reta. Faixa: margem EBITDA de 2021 a 2025, sem perdas por recuperabilidade. Pessimista é o segundo pior ano, moderado a mediana e otimista o segundo melhor."},"ajuste_wacc":{"pessimista":0.0156,"moderado":0.0,"otimista":-0.0156,"origem":"Moderado: o WACC que sai do CAPM. O juro prefixado longo andou de 12.2% a 15.3% nos últimos dois anos; pessimista e otimista deslocam o WACC em metade dessa amplitude."}},"historico":{"periodos":["2018","2019","2020","2021","2022","2023","2024","2025","LTM 2T26"],"receita":[22968.885,25436.417,30064.02,47912.039,44362.12,45437.95,43687.46,44797.946,45106.972],"custo":[-16105.657,-17263.264,-19124.901,-25837.475,-31054.016,-33475.189,-31990.696,-32404.221,-32517.962],"lucro_bruto":[6863.228,8173.153,10939.119,22074.564,13308.104,11962.761,11696.764,12393.725,12589.01],"despesas_operacionais":[83.332,-4631.236,-5224.682,-1534.602,-5666.642,-6776.012,-7426.742,-7577.051,-9243.594],"ebit":[6946.56,3541.917,5714.437,20539.962,7641.462,5186.749,4270.022,4816.674,3345.416],"resultado_financeiro":[-1495.643,-2131.184,-796.311,-1944.184,-3515.025,-4151.382,-5813.371,-6496.192,-5895.433],"lucro_liquido":[5200.583,2244.511,4292.618,13595.621,2167.698,402.649,-1538.141,-1506.726,-1972.858],"ativo_total":[47327.524,50869.276,63002.149,79379.103,85354.359,91529.72,103906.654,100575.369,100602.032],"caixa_total":[3143.717,3722.128,13727.948,19291.212,13447.841,17579.222,24221.575,15063.737,14285.754],"capital_de_giro":[3643.92,4318.027,2865.399,7094.674,7925.478,5087.822,6310.005,5689.604,4549.829],"ativo_fixo":[25300.039,26932.725,27033.017,29188.184,37158.499,38463.939,40864.114,44925.294,45434.494],"divida_bruta":[28827.074,27967.036,35270.653,32507.522,40918.742,44859.075,56914.621,52924.547,53365.56],"patrimonio_liquido":[10013.44,11361.932,11251.505,23374.389,21816.044,19684.838,15459.116,15736.35,15240.376],"fco":[2208.105,4871.879,9576.874,14793.263,2042.793,7292.608,8650.505,-973.179,-245.0],"capex":[1319.302,2215.883,1683.839,2864.707,3352.21,4408.119,5494.335,5935.897,5981.896],"dividendos_pagos":[502.002,1920.309,309.35,3290.544,3756.738,3980.871,2535.325,695.232,905.831],"fcl_simples":[888.803,2655.996,7893.035,11928.556,-1309.417,2884.489,3156.17,-6909.076,-6226.896],"da":[1273.021,1519.331,2516.728,2212.406,2870.231,3372.073,3786.055,4150.475,4381.847],"ebitda":[8219.581,5061.248,8231.165,22752.368,10511.693,8558.822,8056.077,8967.149,7727.263],"ebitda_recorrente":[8219.581,5061.248,8231.165,22752.368,10511.693,8558.822,8056.077,8967.149,7727.263],"nopat":[4495.1636,2254.6933,3724.1701,13435.9223,4886.3397,3191.5079,2522.5028,2836.6338,1920.6818],"crescimento_receita":[null,0.1074,0.1819,0.5937,-0.0741,0.0243,-0.0385,0.0254,0.0069],"margem_bruta":[0.2988,0.3213,0.3639,0.4607,0.3,0.2633,0.2677,0.2767,0.2791],"margem_ebitda":[0.3579,0.199,0.2738,0.4749,0.237,0.1884,0.1844,0.2002,0.1713],"margem_ebitda_recorrente":[0.3579,0.199,0.2738,0.4749,0.237,0.1884,0.1844,0.2002,0.1713],"margem_liquida":[0.2264,0.0882,0.1428,0.2838,0.0489,0.0089,-0.0352,-0.0336,-0.0437],"divida_liquida":[25683.357,24244.908,21542.705,13216.31,27470.901,27279.853,32693.046,37860.81,39079.806],"divida_liquida_ebitda":[3.1247,4.7903,2.6172,0.5809,2.6134,3.1873,4.0582,4.2222,5.0574],"roic":[0.1553,0.0721,0.1246,0.3703,0.1084,0.0733,0.0535,0.056,0.0384],"roe":[0.5831,0.1758,0.3827,0.6034,0.0797,-0.0182,-0.2112,-0.1555,-0.2159],"prazo_recebimento":[33.0245,29.3868,34.8118,19.7907,26.6016,26.2658,24.2373,19.5303,20.4851],"prazo_estoque":[124.013,122.4728,105.8767,169.0789,146.2035,115.8855,135.1021,135.0709,121.5301],"prazo_pagamento":[85.4835,69.844,105.9196,99.6041,85.4347,93.8416,90.9857,92.5353,95.3478],"ciclo_caixa":[71.554,82.0156,34.7689,89.2654,87.3704,48.3097,68.3537,62.0658,46.6673],"capex_pct":[0.0574,0.0871,0.056,0.0598,0.0756,0.097,0.1258,0.1325,0.1326],"despesas_pct":[0.0023,0.187,0.1762,0.0358,0.1331,0.1569,0.1803,0.1807,0.2146]}},"GGBR4":{"ticker":"GGBR4","nome":"Gerdau","status":"proposta","data_base":"2026-06-30","ano_base":2025,"anos":[2026,2027,2028,2029,2030],"base":{"ano":{"receita":69858.532,"contas_receber":4810.64,"estoques":14731.081,"fornecedores":5009.671,"ativo_fixo":44599.387,"investimentos":3944.474,"caixa_total":6374.797,"divida_bruta":14182.151,"ativo_total":81688.175,"patrimonio_liquido":53798.489,"outros_ativos":7227.796000000002,"outros_passivos":8697.864000000001},"ponte":{"divida_bruta":13558.089,"caixa_total":5440.494,"minoritarios":190.194,"investimentos":3700.806},"acoes":1963.1806,"preco":24.77,"fracao_ano1":0.5041095890410959},"mercado":{"data_preco":"2026-10-08","minimo_52s":17.35,"maximo_52s":26.31,"valor_de_mercado":46089.0479},"premissas":{"despesas_pct":[0.0332,0.0315,0.0297,0.0279,0.0261],"equivalencia":[563.158,563.158,563.158,563.158,563.158],"capex_pct":[0.0779,0.0773,0.0767,0.0762,0.0756],"depreciacao_pct":[0.0887,0.0887,0.0887,0.0887,0.0887],"prazo_recebimento":[25.1348,25.1348,25.1348,25.1348,25.1348],"prazo_estoque":[92.3738,92.3738,92.3738,92.3738,92.3738],"prazo_pagamento":[31.414,31.414,31.414,31.414,31.414],"captacao_liquida":[0.0,0.0,0.0,0.0,0.0],"aliquota_ir":0.34,"custo_divida":0.1291,"rendimento_caixa":0.1235,"payout":0.3602,"juro_sem_risco":0.1291,"beta":0.801,"premio_mercado":0.0423,"premio_adicional":0.0,"peso_divida":0.2273,"crescimento_perpetuo":0.035,"capex_perpetuidade":1.0,"outros_ajustes":0.0,"crescimento_receita":[-0.0045,0.0378,0.0378,0.0378,0.0378],"margem_ebitda":[0.1538,0.164625,0.17545,0.186275,0.1971],"ajuste_wacc":0.0},"origens":{"despesas_pct":"Vendas, administrativas e outras, sem perdas por recuperabilidade. Do nível dos últimos 12 meses até a mediana de 2021-2025.","equivalencia":"Mediana de 2021-2025, mantida.","capex_pct":"Do nível dos últimos 12 meses até a mediana de 2021-2025.","depreciacao_pct":"Mediana de 2021-2025, mantida.","prazo_recebimento":"Prazo de 2025, mantido.","prazo_estoque":"Prazo de 2025, mantido.","prazo_pagamento":"Prazo de 2025, mantido.","captacao_liquida":"Dívida bruta mantida no nível de 2025.","aliquota_ir":"Alíquota nominal: IRPJ 25% + CSLL 9%.","custo_divida":"Piso: a taxa do Tesouro prefixado de dez anos, sem spread de crédito. Custo implícito mediano 2023-2025: 19.3%.","rendimento_caixa":"Mediana 2023-2025 da receita financeira sobre o caixa médio.","payout":"Mediana 2021-2025 de dividendos pagos sobre lucro, limitada a 0-100%.","juro_sem_risco":"Tesouro prefixado de dez anos (em reais, nominal).","beta":"Regressão de 5 anos, retornos semanais contra o BOVA11, preços sem ajuste de proventos. Beta de 2 anos: 0.71.","premio_mercado":"Damodaran, mercado maduro. O risco-país já está no juro em reais.","premio_adicional":"Sem prêmio adicional.","peso_divida":"Dívida bruta do 2T26 sobre dívida mais valor de mercado.","crescimento_perpetuo":"IPCA esperado para 2030: crescimento real zero.","capex_perpetuidade":"Na perpetuidade a empresa reinveste o que deprecia.","outros_ajustes":"Nenhum. Provisões (barragens, contingências) não entram como dívida.","crescimento_receita":"2026: nível dos últimos 12 meses (LTM 2T26). Pessimista: receita parada, ou seja, queda real. Moderado: inflação esperada no Focus para 2027-2030, crescimento real zero. Otimista: crescimento médio da receita de 2018 a 2025 (6.1% ao ano).","margem_ebitda":"2026: nível dos últimos 12 meses (LTM 2T26). Daí até 2030 em linha reta. Faixa: margem EBITDA de 2021 a 2025, sem perdas por recuperabilidade. Pessimista é o segundo pior ano, moderado a mediana e otimista o segundo melhor.","ajuste_wacc":"Moderado: o WACC que sai do CAPM. O juro prefixado longo andou de 12.2% a 15.3% nos últimos dois anos; pessimista e otimista deslocam o WACC em metade dessa amplitude."},"cenarios":{"crescimento_receita":{"partida":-0.0045,"pessimista":0.0,"moderado":0.0378,"otimista":0.061,"origem":"2026: nível dos últimos 12 meses (LTM 2T26). Pessimista: receita parada, ou seja, queda real. Moderado: inflação esperada no Focus para 2027-2030, crescimento real zero. Otimista: crescimento médio da receita de 2018 a 2025 (6.1% ao ano)."},"margem_ebitda":{"partida":0.1538,"pessimista":0.1613,"moderado":0.1971,"otimista":0.2506,"origem":"2026: nível dos últimos 12 meses (LTM 2T26). Daí até 2030 em linha reta. Faixa: margem EBITDA de 2021 a 2025, sem perdas por recuperabilidade. Pessimista é o segundo pior ano, moderado a mediana e otimista o segundo melhor."},"ajuste_wacc":{"pessimista":0.0156,"moderado":0.0,"otimista":-0.0156,"origem":"Moderado: o WACC que sai do CAPM. O juro prefixado longo andou de 12.2% a 15.3% nos últimos dois anos; pessimista e otimista deslocam o WACC em metade dessa amplitude."}},"historico":{"periodos":["2018","2019","2020","2021","2022","2023","2024","2025","LTM 2T26"],"receita":[46159.478,39644.01,43814.661,78345.081,82412.21,68916.447,67026.656,69858.532,69543.739],"custo":[-40010.1,-35440.726,-37884.102,-57527.721,-63661.156,-57583.992,-57823.416,-61891.039,-60430.291],"lucro_bruto":[6149.378,4203.284,5930.559,20817.36,18751.054,11332.455,9203.24,7967.493,9113.448],"despesas_operacionais":[-2102.152,-1019.35,-736.174,205.662,-999.601,-879.728,-1716.038,-4228.425,-4079.307],"ebit":[4047.226,3183.934,5194.385,21023.022,17751.453,10452.727,7487.202,3739.068,5034.141],"resultado_financeiro":[-1889.795,-1509.214,-1698.707,-750.454,-1892.426,-1106.122,-2023.487,-1214.621,-1200.23],"lucro_liquido":[2326.382,1216.887,2388.054,15558.938,11479.552,7536.983,4599.062,1418.438,2275.538],"ativo_total":[51281.029,54002.97,63123.009,73814.613,73798.652,74885.144,86814.493,81688.175,81972.713],"caixa_total":[3349.614,6294.601,7658.347,6786.866,5434.998,5343.742,8276.843,6374.797,5440.494],"capital_de_giro":[8250.288,6569.339,7468.734,14258.423,16197.666,14201.989,15963.765,14532.05,15917.024],"ativo_fixo":[25494.967,26821.38,30794.323,32540.817,33433.233,35262.042,45013.689,44599.387,44252.647],"divida_bruta":[14906.714,16049.867,17515.351,14039.693,12607.39,10893.308,13636.484,14182.151,13558.089],"patrimonio_liquido":[25938.571,27173.127,31085.21,42815.649,46298.193,49238.863,58173.786,53798.489,53734.748],"fco":[1999.683,1642.792,6407.906,12516.933,11150.338,11138.71,11381.243,7987.454,9116.445],"capex":[1194.934,1746.6,1650.778,3026.023,4291.873,5209.128,5778.381,6681.62,5415.708],"dividendos_pagos":[599.099,484.173,274.815,5339.426,5891.69,2683.328,1656.414,1285.673,1372.327],"fcl_simples":[804.749,-103.808,4757.128,9490.91,6858.465,5929.582,5602.862,1305.834,3700.737],"da":[1891.814,2074.295,2441.835,2515.909,2899.239,3130.548,3126.247,3683.585,3696.375],"ebitda":[5939.04,5258.229,7636.22,23538.931,20650.692,13583.275,10613.449,7422.653,8730.516],"ebitda_recorrente":[5939.04,5258.229,8048.145,23538.931,20650.692,13583.275,10813.076,9387.157,10695.02],"nopat":[2664.4761,2112.6494,3327.5986,13503.5102,10955.7532,6352.5799,4635.0051,2404.6744,3192.7744],"crescimento_receita":[null,-0.1412,0.1052,0.7881,0.0519,-0.1638,-0.0274,0.0423,-0.0045],"margem_bruta":[0.1332,0.106,0.1354,0.2657,0.2275,0.1644,0.1373,0.1141,0.131],"margem_ebitda":[0.1287,0.1326,0.1743,0.3005,0.2506,0.1971,0.1583,0.1063,0.1255],"margem_ebitda_recorrente":[0.1287,0.1326,0.1837,0.3005,0.2506,0.1971,0.1613,0.1344,0.1538],"margem_liquida":[0.0504,0.0307,0.0545,0.1986,0.1393,0.1094,0.0686,0.0203,0.0327],"divida_liquida":[11557.1,9755.266,9857.004,7252.827,7172.392,5549.566,5359.641,7807.354,8117.595],"divida_liquida_ebitda":[1.946,1.8552,1.2908,0.3081,0.3473,0.4086,0.505,1.0518,0.9298],"roic":[0.079,0.0633,0.087,0.2885,0.2207,0.1284,0.076,0.0407,0.0531],"roe":[0.0895,0.0447,0.0767,0.3637,0.2478,0.1529,0.0788,0.0259,0.0418],"prazo_recebimento":[25.3167,24.6043,31.1335,25.2235,22.1404,25.8214,28.1916,25.1348,31.4877],"prazo_estoque":[87.7848,83.7909,94.4307,111.8749,107.0312,102.0714,110.139,92.3738,103.5775],"prazo_pagamento":[39.4419,41.1614,56.0024,53.1932,39.7602,39.5555,38.1575,31.414,39.772],"ciclo_caixa":[73.6596,67.2338,69.5617,83.9052,89.4113,88.3373,100.1731,86.0946,95.2933],"capex_pct":[0.0259,0.0441,0.0377,0.0386,0.0521,0.0756,0.0862,0.0956,0.0779],"despesas_pct":[0.0458,0.0253,0.0109,0.0046,0.0261,0.0248,0.0296,0.0338,0.0332]}}},"rotulos":{"crescimento_receita":"Crescimento da receita, ao ano (2027 a 2030)","margem_ebitda":"Margem EBITDA em 2030","ajuste_wacc":"WACC: pontos acima ou abaixo do CAPM","despesas_pct":"Despesas operacionais (% da receita)","equivalencia":"Equivalência patrimonial (R$ milhões)","capex_pct":"Investimento - capex (% da receita)","depreciacao_pct":"Depreciação (% do ativo fixo inicial)","prazo_recebimento":"Prazo médio de recebimento (dias)","prazo_estoque":"Prazo médio de estoque (dias)","prazo_pagamento":"Prazo médio de pagamento (dias)","captacao_liquida":"Captação líquida de dívida (R$ milhões)","aliquota_ir":"Alíquota de IR e CSLL","custo_divida":"Custo da dívida antes do imposto (Kd)","rendimento_caixa":"Rendimento do caixa","payout":"Dividendos (% do lucro)","juro_sem_risco":"Juro sem risco (Rf)","beta":"Beta","premio_mercado":"Prêmio de risco de mercado","premio_adicional":"Prêmio adicional (tamanho, risco específico)","peso_divida":"Peso da dívida na estrutura de capital","crescimento_perpetuo":"Crescimento na perpetuidade (g)","capex_perpetuidade":"Capex na perpetuidade (múltiplo da depreciação)","outros_ajustes":"Outros passivos tratados como dívida (R$ milhões)"},"nomes_cenarios":{"pessimista":"Pessimista","moderado":"Moderado","otimista":"Otimista"},"multiplos":[{"ticker":"VALE3","empresa":"Vale","setor":"Mineração","preco":67.64,"acoes":4072.366,"valor_de_mercado":275454.8362,"divida_liquida":68192.0,"minoritarios":4832.0,"ev":348478.8362,"ebitda":51933.0,"ebit":34110.0,"lucro":10369.0,"patrimonio":196635.0,"ev_ebitda":6.7101618663,"ev_ebit":10.21632472,"p_l":26.5652267528,"p_vp":1.4008433707},{"ticker":"CSNA3","empresa":"CSN","setor":"Siderurgia","preco":6.36,"acoes":1326.0939,"valor_de_mercado":8433.9575,"divida_liquida":39079.806,"minoritarios":3074.044,"ev":50587.8075,"ebitda":7727.263,"ebit":3345.416,"lucro":-2626.882,"patrimonio":12166.332,"ev_ebitda":6.5466656823,"ev_ebit":15.121529729,"p_l":null,"p_vp":0.6932210546},{"ticker":"GGBR4","empresa":"Gerdau","setor":"Siderurgia","preco":24.77,"acoes":1963.1806,"valor_de_mercado":46089.0479,"divida_liquida":8117.595,"minoritarios":190.194,"ev":54396.8369,"ebitda":8730.516,"ebit":5034.141,"lucro":2237.081,"patrimonio":53544.554,"ev_ebitda":6.2306554275,"ev_ebit":10.8055846866,"p_l":20.6023152045,"p_vp":0.8607607022},{"ticker":"USIM5","empresa":"Usiminas","setor":"Siderurgia","preco":7.21,"acoes":1230.9427,"valor_de_mercado":8625.6879,"divida_liquida":-599.249,"minoritarios":2893.937,"ev":10920.3759,"ebitda":164.986,"ebit":-982.31,"lucro":-2320.418,"patrimonio":20751.154,"ev_ebitda":66.1897124605,"ev_ebit":-11.1170362716,"p_l":null,"p_vp":0.415672685},{"ticker":"CMIN3","empresa":"CSN Mineração","setor":"Mineração","preco":5.06,"acoes":5402.4354,"valor_de_mercado":27336.3233,"divida_liquida":1025.104,"minoritarios":0.19,"ev":28361.6173,"ebitda":6003.736,"ebit":4642.024,"lucro":2333.063,"patrimonio":7339.411,"ev_ebitda":4.7239947426,"ev_ebit":6.1097524054,"p_l":11.716924618,"p_vp":3.7245936084}],"implicitos":[{"ticker":"VALE3","multiplo":"ev_ebitda","mediana_pares":6.3886605549,"base":51933.0,"preco_implicito":63.5400424707},{"ticker":"VALE3","multiplo":"ev_ebit","mediana_pares":8.457668546,"base":34110.0,"preco_implicito":52.9095553064},{"ticker":"VALE3","multiplo":"p_l","mediana_pares":16.1596199112,"base":10369.0,"preco_implicito":41.1453928403},{"ticker":"VALE3","multiplo":"p_vp","mediana_pares":0.7769908784,"base":196635.0,"preco_implicito":37.5171586682},{"ticker":"CSNA3","multiplo":"ev_ebitda","mediana_pares":6.4704086469,"base":7727.263,"preco_implicito":5.9156439312},{"ticker":"CSNA3","multiplo":"ev_ebit","mediana_pares":8.1630385627,"base":3345.416,"preco_implicito":-11.1945995556},{"ticker":"CSNA3","multiplo":"p_l","mediana_pares":20.6023152045,"base":-2626.882,"preco_implicito":null},{"ticker":"CSNA3","multiplo":"p_vp","mediana_pares":1.1308020365,"base":12166.332,"preco_implicito":10.3746144989},{"ticker":"GGBR4","multiplo":"ev_ebitda","mediana_pares":6.6284137743,"base":8730.516,"preco_implicito":25.2456057842},{"ticker":"GGBR4","multiplo":"ev_ebit","mediana_pares":8.1630385627,"base":5034.141,"preco_implicito":16.7005002562},{"ticker":"GGBR4","multiplo":"p_l","mediana_pares":19.1410756854,"base":2237.081,"preco_implicito":21.8116136312},{"ticker":"GGBR4","multiplo":"p_vp","mediana_pares":1.0470322127,"base":53544.554,"preco_implicito":28.557165271}],"macro":[{"indicador":"juro_prefixado_longo","valor":0.1291,"data":"2026-10-08","detalhe":"Tesouro Prefixado com Juros Semestrais 2037"},{"indicador":"juro_real_longo","valor":0.0685,"data":"2026-10-08","detalhe":"Tesouro IPCA+ com Juros Semestrais 2037"},{"indicador":"juro_prefixado_minimo","valor":0.1215,"data":"2026-10-08","detalhe":"Mínimo do prefixado mais longo nos últimos dois anos"},{"indicador":"juro_prefixado_maximo","valor":0.1528,"data":"2026-10-08","detalhe":"Máximo do prefixado mais longo nos últimos dois anos"},{"indicador":"ipca_2026","valor":0.050129,"data":"2026-10-02","detalhe":"Focus, mediana de 144 instituições"},{"indicador":"ipca_2027","valor":0.043007,"data":"2026-10-02","detalhe":"Focus, mediana de 144 instituições"},{"indicador":"ipca_2028","valor":0.038007,"data":"2026-10-02","detalhe":"Focus, mediana de 118 instituições"},{"indicador":"ipca_2029","valor":0.035108,"data":"2026-10-02","detalhe":"Focus, mediana de 110 instituições"},{"indicador":"ipca_2030","valor":0.035,"data":"2026-10-02","detalhe":"Focus, mediana de 105 instituições"},{"indicador":"premio_mercado_maduro","valor":0.0423,"data":"2026-02-16","detalhe":"Prêmio de risco de mercado maduro (total do Brasil menos risco-país)"},{"indicador":"premio_risco_brasil","valor":0.03241,"data":"2026-02-16","detalhe":"Risco-país pelo rating Ba1"}]};
 
 // ------------------------------------------------------------------ formatação
 const nf = (casas) => new Intl.NumberFormat("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });
-const mi = (v) => nf(0).format(v);
+const ok = (v) => Number.isFinite(v);
+const mi = (v) => (ok(v) ? nf(0).format(v) : "–");
 const bi = (v) => "R$ " + nf(1).format(v / 1000) + " bi";
-const pct = (v, casas = 1) => nf(casas).format(v * 100) + "%";
+const biCurto = (v) => nf(1).format(v / 1000);
+const pct = (v, casas = 1) => (ok(v) ? nf(casas).format(v * 100) + "%" : "–");
 const reais = (v) => "R$ " + nf(2).format(v);
-const vezes = (v) => nf(2).format(v) + "x";
-const pp = (v) => (v > 0 ? "+" : "") + nf(1).format(v * 100) + " p.p.";
+const vezes = (v) => (ok(v) ? nf(2).format(v) + "x" : "–");
+const dias = (v) => (ok(v) ? nf(0).format(v) : "–");
+// Quando a dívida supera o valor da empresa, o valor por ação do modelo fica negativo.
+// A página mostra o número como ele é, para os controles continuarem a mexer nele.
+const sinal = (v) => (v < 0 ? "−" : "") + "R$ " + nf(2).format(Math.abs(v));
+const data = (iso) => iso.split("-").reverse().join("/");
 const el = (id) => document.getElementById(id);
 
 // ------------------------------------------------------------------ estado
-// Os controles guardam ajustes sobre as premissas do arquivo, não valores absolutos:
-// trocar de empresa mantém o mesmo choque aplicado.
-const CONTROLES = [
-  { id: "preco", grupo: "operacao", rotulo: "Preço de venda em 2027", min: -0.25, max: 0.25, passo: 0.01, fmt: pp, tipo: "delta" },
-  { id: "volume", grupo: "operacao", rotulo: "Volume, ao ano", min: -0.03, max: 0.06, passo: 0.005, fmt: pp, tipo: "delta" },
-  { id: "custos", grupo: "operacao", rotulo: "Inflação de custos, ao ano", min: -0.03, max: 0.03, passo: 0.005, fmt: pp, tipo: "delta" },
-  { id: "capex", grupo: "operacao", rotulo: "Capex sobre a receita", min: -0.05, max: 0.05, passo: 0.005, fmt: pp, tipo: "delta" },
-  { id: "juro_sem_risco", grupo: "capital", rotulo: "Juro sem risco", min: 0.06, max: 0.18, passo: 0.0025, fmt: (v) => pct(v, 2), tipo: "valor" },
-  { id: "beta", grupo: "capital", rotulo: "Beta", min: 0.4, max: 2.2, passo: 0.05, fmt: (v) => nf(2).format(v), tipo: "valor" },
-  { id: "premio_mercado", grupo: "capital", rotulo: "Prêmio de risco de mercado", min: 0.03, max: 0.1, passo: 0.0025, fmt: (v) => pct(v, 2), tipo: "valor" },
-  { id: "custo_divida", grupo: "capital", rotulo: "Custo da dívida", min: 0.06, max: 0.22, passo: 0.0025, fmt: (v) => pct(v, 2), tipo: "valor" },
-  { id: "peso_divida", grupo: "capital", rotulo: "Peso da dívida", min: 0, max: 0.9, passo: 0.01, fmt: (v) => pct(v, 0), tipo: "valor" },
-  { id: "crescimento_perpetuo", grupo: "capital", rotulo: "Crescimento perpétuo (g)", min: 0, max: 0.06, passo: 0.0025, fmt: (v) => pct(v, 2), tipo: "valor" },
-  { id: "capex_perpetuidade", grupo: "capital", rotulo: "Capex perpétuo / depreciação", min: 0.8, max: 1.6, passo: 0.05, fmt: vezes, tipo: "valor" },
+const CENARIOS = ["pessimista", "moderado", "otimista"];
+const VARIAVEIS = [
+  { id: "crescimento_receita", rotulo: "Crescimento da receita, ao ano", passo: 0.001 },
+  { id: "margem_ebitda", rotulo: "Margem EBITDA em 2030", passo: 0.001 },
+  { id: "ajuste_wacc", rotulo: "WACC", passo: 0.0005 },
 ];
-const estado = { ticker: Object.keys(DADOS.empresas)[0], ajustes: {}, cenario: "base" };
+const estado = { ticker: Object.keys(DADOS.empresas)[0], cenario: "moderado", valores: null };
+const empresa = () => DADOS.empresas[estado.ticker];
 
-function premissasEmUso(emp, ajustes) {
-  const p = structuredClone(emp.premissas);
-  const a = (id) => ajustes[id] ?? 0;
-  p.variacao_preco[1] += a("preco");
-  p.crescimento_volume = p.crescimento_volume.map((v) => v + a("volume"));
-  p.inflacao_custos = p.inflacao_custos.map((v) => v + a("custos"));
-  p.capex_pct = p.capex_pct.map((v) => v + a("capex"));
-  for (const c of CONTROLES) if (c.tipo === "valor" && ajustes[c.id] != null) p[c.id] = ajustes[c.id];
-  return p;
-}
-
-function rodar(emp, ajustes) {
-  const p = premissasEmUso(emp, ajustes);
+function rodar(emp, escolha) {
+  const p = Modelo.premissas(emp, escolha);
   const proj = Modelo.projetar(emp.base, p, emp.anos);
   return { p, proj, v: Modelo.avaliar(emp.base, proj, p), s: Modelo.sensibilidade(emp.base, proj, p) };
 }
 
+// O WACC aparece em valor absoluto: o do CAPM mais o ajuste do cenário.
+const waccCapm = (emp) => Modelo.custoDeCapital({ ...emp.premissas, ajuste_wacc: 0 }).wacc;
+const mostrar = (emp, id, valor) => pct(id === "ajuste_wacc" ? waccCapm(emp) + valor : valor, 1);
+
 // ------------------------------------------------------------------ controles
 function montarControles() {
-  for (const c of CONTROLES) {
-    const div = document.createElement("div");
-    div.className = "controle";
-    div.innerHTML = `<label for="c-${c.id}"><span>${c.rotulo}</span><output id="o-${c.id}"></output></label>
-      <input type="range" id="c-${c.id}" min="${c.min}" max="${c.max}" step="${c.passo}">`;
-    el("controles-" + c.grupo).append(div);
-    div.querySelector("input").addEventListener("input", (e) => {
-      estado.ajustes[c.id] = Number(e.target.value);
-      if (c.id === "preco") estado.cenario = null;
-      desenhar();
-    });
-  }
-  for (const [id, nome] of [["pessimista", "Pessimista"], ["base", "Base"], ["otimista", "Otimista"]]) {
-    const b = document.createElement("button");
-    b.type = "button"; b.textContent = nome; b.dataset.cenario = id;
-    b.addEventListener("click", () => {
-      const emp = DADOS.empresas[estado.ticker];
-      estado.cenario = id;
-      estado.ajustes.preco = id === "base" ? 0 : emp.cenarios[id].variacao_preco[1];
-      desenhar();
-    });
-    el("cenarios").append(b);
-  }
-  el("limpar").addEventListener("click", () => { estado.ajustes = {}; estado.cenario = "base"; desenhar(); });
   for (const emp of Object.values(DADOS.empresas)) {
     const b = document.createElement("button");
     b.type = "button"; b.setAttribute("role", "tab"); b.dataset.ticker = emp.ticker;
     b.innerHTML = `${emp.nome}<small>${emp.ticker}</small>`;
     b.addEventListener("click", () => {
-      // Os ajustes de custo de capital são da empresa; os choques de operação seguem.
-      for (const c of CONTROLES) if (c.tipo === "valor") delete estado.ajustes[c.id];
-      estado.ticker = emp.ticker; desenhar();
+      // A faixa de cada variável é da empresa: ao trocar, volta ao cenário (ou ao moderado).
+      estado.ticker = emp.ticker;
+      estado.cenario ??= "moderado";
+      estado.valores = Modelo.doCenario(emp, estado.cenario);
+      desenhar();
     });
     el("abas").append(b);
   }
+  for (const c of CENARIOS) {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = DADOS.nomes_cenarios[c]; b.dataset.cenario = c;
+    b.addEventListener("click", () => {
+      estado.cenario = c;
+      estado.valores = Modelo.doCenario(empresa(), c);
+      desenhar();
+    });
+    el("cenarios").append(b);
+  }
+  for (const v of VARIAVEIS) {
+    const div = document.createElement("div");
+    div.className = "controle";
+    div.innerHTML = `<label for="c-${v.id}"><span>${v.rotulo}</span><output id="o-${v.id}"></output></label>
+      <input type="range" id="c-${v.id}" step="${v.passo}">
+      <div class="escala"><span id="e0-${v.id}"></span><span id="e1-${v.id}"></span><span id="e2-${v.id}"></span></div>`;
+    el("controles").append(div);
+    div.querySelector("input").addEventListener("input", (e) => {
+      estado.valores[v.id] = Number(e.target.value);
+      estado.cenario = null; // saiu do cenário: é ajuste manual
+      desenhar();
+    });
+  }
+  const secoes = [...document.querySelectorAll(".bloco")].filter((s) => /^\d+$/.test(s.querySelector(".n").textContent));
+  for (const s of secoes) {
+    const a = document.createElement("a");
+    a.href = "#" + s.id;
+    const h = s.querySelector("h2");
+    a.innerHTML = `<span>${h.querySelector(".n").textContent}</span>${h.lastChild.textContent}`;
+    el("indice").append(a);
+  }
 }
 
-function sincronizarControles(emp, p) {
-  for (const c of CONTROLES) {
-    const valor = c.tipo === "delta" ? estado.ajustes[c.id] ?? 0 : p[c.id];
-    el("c-" + c.id).value = valor;
-    el("o-" + c.id).textContent = c.fmt(valor);
-  }
-  for (const b of el("cenarios").children) b.setAttribute("aria-pressed", b.dataset.cenario === estado.cenario);
+function sincronizarControles(emp) {
   for (const b of el("abas").children) b.setAttribute("aria-selected", b.dataset.ticker === emp.ticker);
+  for (const b of el("cenarios").children) b.setAttribute("aria-pressed", b.dataset.cenario === estado.cenario);
+  el("nota-cenario").textContent = estado.cenario
+    ? `Cenário ${DADOS.nomes_cenarios[estado.cenario].toLowerCase()}: as três variáveis nos valores desse cenário.`
+    : "Ajuste manual: pelo menos uma variável fora dos três cenários.";
+  for (const v of VARIAVEIS) {
+    const [minimo, maximo] = Modelo.faixa(emp, v.id);
+    const c = emp.cenarios[v.id];
+    const entrada = el("c-" + v.id);
+    entrada.min = minimo; entrada.max = maximo; entrada.value = estado.valores[v.id];
+    el("o-" + v.id).textContent = mostrar(emp, v.id, estado.valores[v.id]);
+    // A escala mostra qual cenário fica em cada ponta: no WACC, o pessimista é o mais alto.
+    const pontaBaixa = c.pessimista <= c.otimista ? "pessimista" : "otimista";
+    const pontaAlta = pontaBaixa === "pessimista" ? "otimista" : "pessimista";
+    el("e0-" + v.id).textContent = `${pontaBaixa.slice(0, 4)}. ${mostrar(emp, v.id, c[pontaBaixa])}`;
+    el("e1-" + v.id).textContent = `mod. ${mostrar(emp, v.id, c.moderado)}`;
+    el("e2-" + v.id).textContent = `${pontaAlta.slice(0, 4)}. ${mostrar(emp, v.id, c[pontaAlta])}`;
+  }
 }
 
 // ------------------------------------------------------------------ gráficos (SVG)
@@ -481,8 +588,8 @@ function comDica(alvo) {
 
 // Barras ou linha numa escala só; `corte` é o índice onde começa a projeção.
 function grafico(id, rotulos, valores, corte, fmt, tipo = "barras") {
-  const W = 420, H = 190, m = { e: 8, d: 8, t: 16, b: 22 };
-  const finitos = valores.filter(Number.isFinite);
+  const W = 420, H = 190, m = { e: 8, d: 8, t: 18, b: 22 };
+  const finitos = valores.filter(ok);
   const max = Math.max(0, ...finitos), min = Math.min(0, ...finitos);
   const y = (v) => m.t + ((max - v) / (max - min || 1)) * (H - m.t - m.b);
   const passo = (W - m.e - m.d) / valores.length;
@@ -491,9 +598,9 @@ function grafico(id, rotulos, valores, corte, fmt, tipo = "barras") {
   const pontos = [];
   valores.forEach((v, i) => {
     const cx = m.e + passo * (i + 0.5);
-    const rotuloCurto = String(rotulos[i]).replace("LTM ", "").replace(/^20/, "");
-    s += `<text x="${cx}" y="${H - 6}" text-anchor="middle">${rotuloCurto}</text>`;
-    if (!Number.isFinite(v)) return;
+    const curto = String(rotulos[i]).replace("LTM ", "").replace(/^20/, "");
+    s += `<text x="${cx}" y="${H - 6}" text-anchor="middle">${curto}</text>`;
+    if (!ok(v)) return;
     const d = `${rotulos[i]}: ${fmt(v)}`;
     if (tipo === "barras") {
       const topo = Math.min(y(v), y(0)), alt = Math.max(Math.abs(y(v) - y(0)), 1);
@@ -513,21 +620,20 @@ function grafico(id, rotulos, valores, corte, fmt, tipo = "barras") {
     }
   }
   // Rótulo direto só no último realizado e no último projetado.
-  for (const i of [corte - 1, valores.length - 1]) {
-    if (i < 0 || !Number.isFinite(valores[i])) continue;
+  for (const i of new Set([corte - 1, valores.length - 1])) {
+    if (i < 0 || !ok(valores[i])) continue;
     const cx = m.e + passo * (i + 0.5);
-    const acima = valores[i] >= 0;
-    s += `<text class="valor-rotulo" x="${cx}" y="${y(valores[i]) + (acima ? -5 : 13)}" text-anchor="middle">${fmt(valores[i])}</text>`;
+    s += `<text class="valor-rotulo" x="${cx}" y="${y(valores[i]) + (valores[i] >= 0 ? -6 : 14)}" text-anchor="middle">${fmt(valores[i])}</text>`;
   }
   el(id).innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img">${s}</svg>`;
 }
 
 function faixas(id, linhas, mercado) {
-  const W = 760, alt = 34, m = { e: 190, d: 60, t: 8, b: 26 };
+  const W = 760, alt = 34, m = { e: 190, d: 70, t: 8, b: 26 };
   const H = m.t + alt * linhas.length + m.b;
-  const todos = linhas.flatMap((l) => [l.min, l.max]).concat(mercado).filter(Number.isFinite);
+  const todos = linhas.flatMap((l) => [l.min, l.max]).concat(mercado).filter(ok);
   const max = Math.max(...todos) * 1.08, min = Math.min(0, ...todos);
-  const x = (v) => m.e + ((Math.max(v, min) - min) / (max - min)) * (W - m.e - m.d);
+  const x = (v) => m.e + ((v - min) / (max - min)) * (W - m.e - m.d);
   let s = "";
   for (let i = 0; i <= 4; i++) {
     const v = min + ((max - min) * i) / 4;
@@ -537,124 +643,274 @@ function faixas(id, linhas, mercado) {
   linhas.forEach((l, i) => {
     const cy = m.t + alt * (i + 0.5);
     s += `<text x="${m.e - 10}" y="${cy + 4}" text-anchor="end">${l.rotulo}</text>`;
-    if (!Number.isFinite(l.min)) { s += `<text x="${m.e + 6}" y="${cy + 4}">não se aplica</text>`; return; }
+    if (!ok(l.min)) { s += `<text x="${m.e + 6}" y="${cy + 4}">não se aplica</text>`; return; }
     const largura = Math.max(x(l.max) - x(l.min), 3);
-    s += `<rect x="${x(l.min)}" y="${cy - 7}" width="${largura}" height="14" rx="3" fill="${l.cor}" data-dica="${l.rotulo}: ${reais(l.min)} a ${reais(l.max)}"/>`;
-    if (Number.isFinite(l.ponto)) s += `<rect x="${x(l.ponto) - 1.5}" y="${cy - 11}" width="3" height="22" fill="var(--ink)" data-dica="${l.rotulo}, base: ${reais(l.ponto)}"/>`;
-    s += `<text class="valor-rotulo" x="${x(l.max) + 6}" y="${cy + 4}">${nf(0).format(l.min)}–${nf(0).format(l.max)}</text>`;
+    s += `<rect x="${x(l.min)}" y="${cy - 7}" width="${largura}" height="14" rx="3" fill="${l.cor}" data-dica="${l.rotulo}: ${sinal(l.min)} a ${sinal(l.max)}"/>`;
+    if (ok(l.ponto)) s += `<rect x="${x(l.ponto) - 1.5}" y="${cy - 11}" width="3" height="22" fill="var(--ink)" data-dica="${l.rotulo}, cenário em uso: ${sinal(l.ponto)}"/>`;
+    s += `<text class="valor-rotulo" x="${x(l.max) + 6}" y="${cy + 4}">${nf(0).format(l.min)} a ${nf(0).format(l.max)}</text>`;
   });
   s += `<line x1="${x(mercado)}" x2="${x(mercado)}" y1="${m.t - 4}" y2="${H - m.b}" stroke="var(--ore)" stroke-width="2" stroke-dasharray="5 3"/>`;
   el(id).innerHTML = `<div class="rolagem"><svg viewBox="0 0 ${W} ${H}" role="img" style="min-width:520px">${s}</svg></div>
-    <div class="legenda"><span><i style="background:var(--ore)"></i>Preço de mercado: ${reais(mercado)}</span><span><i style="background:var(--ink)"></i>Cenário base</span></div>`;
+    <div class="legenda"><span><i style="background:var(--ore)"></i>Preço de mercado: ${reais(mercado)}</span><span><i style="background:var(--ink)"></i>Cenário em uso</span><span>Abaixo de zero: a dívida supera o valor da empresa.</span></div>`;
 }
 
 // ------------------------------------------------------------------ tabelas
+// Cada linha: { c: [células], cls: classe da linha, td: [classe de cada célula] }.
 function tabela(id, cabecalho, linhas, classes = "") {
   const th = cabecalho.map((c) => `<th${c.cls ? ` class="${c.cls}"` : ""}>${c.t ?? c}</th>`).join("");
   const tr = linhas.map((l) => `<tr class="${l.cls ?? ""}">${l.c.map((v, i) => `<td class="${i ? "num" : ""} ${l.td?.[i] ?? ""}">${v}</td>`).join("")}</tr>`).join("");
   el(id).innerHTML = `<table class="${classes}"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
 }
+const cab = (primeira, colunas) => [primeira, ...colunas.map((t) => ({ t, cls: "num" }))];
+const titulo = (texto, n) => ({ c: [texto, ...Array(n).fill("")], cls: "titulo" });
 
 // ------------------------------------------------------------------ desenho
 function desenhar() {
-  const emp = DADOS.empresas[estado.ticker];
-  const { p, proj, v, s } = rodar(emp, estado.ajustes);
-  sincronizarControles(emp, p);
+  const emp = empresa();
+  estado.valores ??= Modelo.doCenario(emp, "moderado");
+  const { p, proj, v, s } = rodar(emp, estado.valores);
+  sincronizarControles(emp);
   const h = emp.historico;
+  const n = emp.anos.length;
   const anosE = emp.anos.map((a) => a + "E");
+  const nomeCenario = estado.cenario ? DADOS.nomes_cenarios[estado.cenario].toLowerCase() : "ajuste manual";
 
   el("aviso").hidden = emp.status === "aprovada";
-  el("aviso").textContent = "Versão de trabalho: as premissas desta página são uma proposta automática por regra (histórico, Focus, Tesouro) e ainda não foram revisadas pelo autor. Os preços abaixo são resultado dessas regras, não uma opinião.";
+  el("aviso").textContent = "Versão de trabalho: os cenários desta página saem de regras sobre o histórico da própria empresa e ainda não foram revisados pelo autor. Os preços abaixo são resultado dessas regras, não uma opinião.";
 
+  // ---- destaque
   const negativo = v.equity < 0;
+  const diferenca = v.preco_justo / v.preco_mercado - 1;
   el("destaque").innerHTML = `
-    <div class="principal"><span class="eyebrow">Preço justo (DCF)</span><span class="valor ${negativo ? "neg" : ""}">${reais(v.preco_justo)}</span>
-      <span class="sub">${negativo ? "valor do acionista negativo: a dívida supera o valor da empresa" : "por ação " + emp.ticker}</span></div>
-    <div><span class="eyebrow">Preço de mercado</span><span class="valor">${reais(v.preco_mercado)}</span><span class="sub">B3, ${emp.mercado.data_preco.split("-").reverse().join("/")}</span></div>
-    <div><span class="eyebrow">Diferença</span><span class="valor ${v.potencial < 0 ? "neg" : ""}">${(v.potencial > 0 ? "+" : "") + pct(v.potencial, 0)}</span><span class="sub">modelo sobre mercado</span></div>
-    <div><span class="eyebrow">WACC</span><span class="valor">${pct(v.wacc, 1)}</span><span class="sub">Ke ${pct(v.ke, 1)} · Kd líq. ${pct(v.kd_liquido, 1)}</span></div>
+    <div class="principal"><span class="eyebrow">${negativo ? "Valor por ação (DCF)" : "Preço justo (DCF)"}</span><span class="valor ${negativo ? "neg" : ""}">${sinal(v.preco_justo)}</span>
+      <span class="sub">${negativo ? "negativo: a dívida supera o valor da empresa em " + bi(-v.equity) + ". Na bolsa, a ação não vale menos que zero." : emp.ticker + " · " + (estado.cenario ? "cenário " + nomeCenario : nomeCenario)}</span></div>
+    <div><span class="eyebrow">Preço de mercado</span><span class="valor">${reais(v.preco_mercado)}</span><span class="sub">B3, ${data(emp.mercado.data_preco)}</span></div>
+    <div><span class="eyebrow">Diferença</span><span class="valor ${diferenca < 0 ? "neg" : ""}">${negativo ? "n.a." : (diferenca > 0 ? "+" : "") + pct(diferenca, 0)}</span><span class="sub">${negativo ? "não se aplica a valor negativo" : "modelo sobre mercado"}</span></div>
+    <div><span class="eyebrow">WACC</span><span class="valor">${pct(v.wacc, 1)}</span><span class="sub">Ke ${pct(v.ke_usado, 1)} · Kd líq. ${pct(v.kd_liquido, 1)}</span></div>
     <div><span class="eyebrow">Valor da empresa</span><span class="valor">${bi(v.ev)}</span><span class="sub">${vezes(v.ev_ebitda_implicito)} o EBITDA ${anosE[0]}</span></div>`;
 
-  // Ponte EV -> preço
-  const maior = Math.max(v.ev, v.vp_terminal, Math.abs(v.equity), v.divida_liquida, 1);
-  const lp = (rotulo, valor, cls = "") => `<div class="linha ${cls}"><span>${rotulo}</span><span><span class="barra" style="display:block;width:${Math.min(100, (Math.abs(valor) / maior) * 100)}%"></span></span><span class="num">${mi(valor)}</span></div>`;
-  el("ponte").innerHTML =
-    lp(`Fluxos de ${anosE[0]} a ${anosE.at(-1)}, a valor presente`, v.vp_fluxos) +
-    lp(`Perpetuidade, a valor presente (${pct(v.peso_terminal, 0)} do total)`, v.vp_terminal) +
-    lp("Valor da empresa (EV)", v.ev, "total") +
-    lp("− Dívida líquida em " + emp.data_base.split("-").reverse().join("/"), v.divida_liquida, "menos") +
-    lp("− Minoritários", v.minoritarios, "menos") +
-    lp("+ Investimentos em coligadas", v.investimentos) +
-    (v.outros_ajustes ? lp("− Outros passivos", v.outros_ajustes, "menos") : "") +
-    lp("Valor do acionista", v.equity, "total") +
-    `<div class="linha"><span>÷ ${nf(0).format(emp.base.acoes)} milhões de ações</span><span></span><span class="num"><b>${reais(v.preco_justo)}</b></span></div>
-     <div class="linha" style="color:var(--ink-3)"><span>Conferência pelo fluxo do acionista (FCFE, descontado ao Ke)</span><span></span><span class="num">${reais(v.preco_fcfe)}</span></div>`;
+  // ---- 1. demonstrativos
+  const lh = (rotulo, nome, fmt = mi, cls = "") => ({ c: [rotulo, ...h[nome].map((x) => fmt(x))], cls });
+  const np = h.periodos.length;
+  tabela("t-demonstrativos", cab("R$ milhões", h.periodos), [
+    titulo("Demonstração do resultado", np),
+    lh("Receita líquida", "receita", mi, "forte"), lh("Custo dos produtos vendidos", "custo"), lh("Lucro bruto", "lucro_bruto"),
+    lh("Despesas e receitas operacionais", "despesas_operacionais"), lh("EBIT", "ebit", mi, "forte"),
+    lh("Resultado financeiro", "resultado_financeiro"), lh("Lucro líquido", "lucro_liquido", mi, "forte"),
+    titulo("Balanço patrimonial", np),
+    lh("Ativo total", "ativo_total"), lh("Caixa e aplicações", "caixa_total"), lh("Capital de giro", "capital_de_giro"),
+    lh("Ativo fixo", "ativo_fixo"), lh("Dívida bruta", "divida_bruta"), lh("Patrimônio líquido", "patrimonio_liquido", mi, "forte"),
+    titulo("Fluxo de caixa", np),
+    lh("Caixa das operações", "fco"), lh("Capex", "capex"), lh("Caixa das operações menos capex", "fcl_simples", mi, "forte"),
+    lh("Dividendos e JCP pagos", "dividendos_pagos"),
+  ]);
 
-  // Gráficos: realizado (anos fechados) + projeção
+  // ---- 2. integração
+  const lp = (rotulo, nome, fmt = mi, cls = "", s = 1) => ({ c: [rotulo, ...proj[nome].map((x) => fmt(s * x))], cls });
+  tabela("t-integracao", cab("R$ milhões", anosE), [
+    lp("Lucro líquido (da DRE)", "lucro_liquido", mi, "forte"),
+    lp("+ Depreciação (não sai do caixa)", "da"),
+    lp("− Equivalência patrimonial (não entra no caixa)", "equivalencia", mi, "", -1),
+    lp("− Investimento em capital de giro", "variacao_giro", mi, "", -1),
+    lp("− Capex", "capex", mi, "", -1),
+    lp("+ Captação líquida de dívida", "captacao_liquida"),
+    lp("− Dividendos", "dividendos", mi, "", -1),
+    lp("= Variação do caixa", "variacao_caixa", mi, "forte sep"),
+    lp("Caixa no fim do ano (vai para o balanço)", "caixa_total"),
+    lp("Ativo total", "ativo_total", mi, "sep"),
+    lp("Passivo mais patrimônio líquido", "passivo_e_pl"),
+    { c: ["Diferença (tem de ser zero)", ...proj.checagem_balanco.map((x) => nf(0).format(Math.abs(x) < 0.5 ? 0 : x))], cls: "forte" },
+  ]);
+
+  // ---- 3. indicadores
+  tabela("t-indicadores", cab("R$ milhões", h.periodos), [
+    lh("EBIT", "ebit"), lh("Depreciação e amortização", "da"), lh("EBITDA", "ebitda", mi, "forte"),
+    lh("EBITDA sem perdas por recuperabilidade", "ebitda_recorrente"), lh("NOPAT", "nopat", mi, "forte"),
+    lh("Crescimento da receita", "crescimento_receita", pct, "sep"), lh("Margem bruta", "margem_bruta", pct),
+    lh("Margem EBITDA", "margem_ebitda", pct), lh("Margem EBITDA sem perdas por recuperabilidade", "margem_ebitda_recorrente", pct),
+    lh("Margem líquida", "margem_liquida", pct),
+    lh("ROIC", "roic", pct, "sep"), lh("ROE", "roe", pct), lh("Dívida líquida / EBITDA", "divida_liquida_ebitda", vezes),
+  ]);
+
+  // ---- 4. projeção
   const fechados = h.periodos.map((x, i) => [x, i]).filter(([x]) => !x.startsWith("LTM"));
   const rot = [...fechados.map(([x]) => x), ...anosE];
   const serie = (linhaH, linhaP) => [...fechados.map(([, i]) => h[linhaH][i]), ...proj[linhaP]];
-  const corte = fechados.length;
-  const biCurto = (x) => nf(1).format(x / 1000) + " bi";
-  grafico("g-receita", rot, serie("receita", "receita"), corte, biCurto);
-  grafico("g-margem", rot, serie("margem_ebitda", "margem_ebitda"), corte, (x) => pct(x, 0), "linha");
-  grafico("g-fcff", anosE, proj.fcff, 0, biCurto);
-  grafico("g-alav", rot, serie("divida_liquida_ebitda", "divida_liquida_ebitda"), corte, vezes, "linha");
-
-  const lin = (rotulo, nome, fmt = mi, cls = "") => ({ c: [rotulo, ...proj[nome].map((x) => fmt(x))], cls });
-  tabela("t-projecao", ["R$ milhões", ...anosE.map((t) => ({ t, cls: "num" }))], [
-    lin("Receita líquida", "receita", mi, "forte"), lin("EBITDA", "ebitda"), lin("Margem EBITDA", "margem_ebitda", pct),
-    lin("Depreciação", "da"), lin("EBIT", "ebit"), lin("Lucro líquido", "lucro_liquido", mi, "forte"),
-    lin("NOPAT", "nopat", mi, "sep"), lin("Capex", "capex"), lin("Investimento em giro", "variacao_giro"),
-    lin("FCFF", "fcff", mi, "forte"), lin("FCFE", "fcfe", mi, "forte"),
-    lin("Caixa no fim do ano", "caixa_total", mi, "sep"), lin("Dívida líquida / EBITDA", "divida_liquida_ebitda", vezes), lin("ROIC", "roic", pct),
+  grafico("g-receita", rot, serie("receita", "receita"), fechados.length, biCurto);
+  grafico("g-margem", rot, serie("margem_ebitda_recorrente", "margem_ebitda"), fechados.length, (x) => pct(x, 0), "linha");
+  tabela("t-projecao", cab("R$ milhões", anosE), [
+    lp("Receita líquida", "receita", mi, "forte"),
+    { c: ["Crescimento", ...p.crescimento_receita.map((x) => pct(x))] },
+    lp("− Custo dos produtos, sem depreciação", "custo_caixa", mi, "", -1),
+    lp("− Despesas operacionais", "despesas", mi, "", -1),
+    lp("+ Equivalência patrimonial", "equivalencia"),
+    lp("= EBITDA", "ebitda", mi, "forte sep"), lp("Margem EBITDA", "margem_ebitda", pct),
+    lp("− Depreciação", "da", mi, "", -1), lp("= EBIT", "ebit", mi, "forte"),
+    lp("Resultado financeiro", "resultado_financeiro"), lp("− Imposto de renda e CSLL", "ir", mi, "", -1),
+    lp("= Lucro líquido", "lucro_liquido", mi, "forte sep"),
   ]);
 
-  // Sensibilidade
+  // ---- 5. capital de giro
+  tabela("t-giro", cab("R$ milhões", anosE), [
+    { c: ["Prazo de recebimento (dias)", ...p.prazo_recebimento.map(dias)] },
+    { c: ["Prazo de estoque (dias)", ...p.prazo_estoque.map(dias)] },
+    { c: ["Prazo de pagamento (dias)", ...p.prazo_pagamento.map(dias)] },
+    lp("Contas a receber", "contas_receber", mi, "sep"), lp("+ Estoques", "estoques"), lp("− Fornecedores", "fornecedores", mi, "", -1),
+    lp("= Capital de giro", "capital_de_giro", mi, "forte"), lp("Variação (consumo de caixa)", "variacao_giro"),
+  ]);
+
+  // ---- 6. capex e opex
+  tabela("t-capex", cab("R$ milhões", anosE), [
+    lp("Capex", "capex", mi, "forte"), { c: ["Capex sobre a receita", ...p.capex_pct.map((x) => pct(x))] },
+    lp("Despesas operacionais (opex)", "despesas", mi, "forte sep"), { c: ["Opex sobre a receita", ...p.despesas_pct.map((x) => pct(x))] },
+  ]);
+
+  // ---- 7. depreciação
+  const ativoInicial = [emp.base.ano.ativo_fixo, ...proj.ativo_fixo.slice(0, n - 1)];
+  tabela("t-depreciacao", cab("R$ milhões", anosE), [
+    { c: ["Ativo fixo no início do ano", ...ativoInicial.map(mi)] },
+    { c: ["Taxa de depreciação", ...p.depreciacao_pct.map((x) => pct(x))] },
+    lp("− Depreciação e amortização", "da", mi, "forte", -1), lp("+ Capex", "capex"),
+    lp("= Ativo fixo no fim do ano", "ativo_fixo", mi, "forte sep"),
+  ]);
+
+  // ---- 8. múltiplos
+  const nomesM = { ev_ebitda: "EV/EBITDA", ev_ebit: "EV/EBIT", p_l: "P/L", p_vp: "P/VP" };
+  const linhasM = DADOS.multiplos.map((x) => ({ c: [`${x.empresa} (${x.ticker})`, bi(x.valor_de_mercado), bi(x.ev), ...Object.keys(nomesM).map((k) => (ok(x[k]) ? vezes(x[k]) : "n.a."))], cls: x.ticker === emp.ticker ? "forte" : "" }));
+  const meus = Object.fromEntries(DADOS.implicitos.filter((x) => x.ticker === emp.ticker).map((x) => [x.multiplo, x]));
+  linhasM.push({ c: ["Mediana das outras quatro", "", "", ...Object.keys(nomesM).map((k) => vezes(meus[k].mediana_pares))], cls: "sep" });
+  linhasM.push({ c: [`Preço implícito de ${emp.ticker}`, "", "", ...Object.keys(nomesM).map((k) => (ok(meus[k].preco_implicito) ? sinal(meus[k].preco_implicito) : "n.a."))], cls: "forte" });
+  tabela("t-multiplos", cab("Empresa", ["Valor de mercado", "EV", ...Object.values(nomesM)]), linhasM);
+
+  // ---- 9. DCF
+  const fr = emp.base.fracao_ano1;
+  const fim = emp.anos.map((_, i) => fr + i);
+  const meio = fim.map((f, i) => f - (i === 0 ? fr : 1) / 2);
+  const fator = meio.map((t) => 1 / (1 + v.wacc) ** t);
+  const vp = proj.fcff.map((f, i) => f * (i === 0 ? fr : 1) * fator[i]);
+  tabela("t-dcf", cab("R$ milhões", anosE), [
+    lp("FCFF", "fcff", mi, "forte"),
+    { c: ["Parte do ano que entra", ...emp.anos.map((_, i) => nf(2).format(i === 0 ? fr : 1))] },
+    { c: ["Anos até o caixa entrar", ...meio.map((x) => nf(2).format(x))] },
+    { c: [`Fator de desconto a ${pct(v.wacc)}`, ...fator.map((x) => nf(3).format(x))] },
+    { c: ["Valor presente", ...vp.map(mi)], cls: "forte" },
+    { c: ["Soma dos valores presentes", mi(v.vp_fluxos), ...Array(n - 1).fill("")], cls: "sep" },
+    { c: [`FCFF normalizado de ${emp.anos.at(-1)}`, mi(v.fcff_terminal), ...Array(n - 1).fill("")] },
+    { c: [`Valor presente da perpetuidade (g = ${pct(v.g_usado)})`, mi(v.vp_terminal), ...Array(n - 1).fill("")] },
+    { c: ["Valor da empresa (EV)", mi(v.ev), ...Array(n - 1).fill("")], cls: "forte" },
+  ]);
+
+  // ---- 10. FCFF e FCFE
+  grafico("g-fcff", anosE, proj.fcff, 0, biCurto);
+  grafico("g-fcfe", anosE, proj.fcfe, 0, biCurto);
+  tabela("t-fluxos", cab("R$ milhões", anosE), [
+    lp("NOPAT (EBIT sem equivalência, após imposto)", "nopat"), lp("+ Depreciação", "da"), lp("− Capex", "capex", mi, "", -1),
+    lp("− Investimento em capital de giro", "variacao_giro", mi, "", -1), lp("= FCFF, fluxo da empresa", "fcff", mi, "forte"),
+    { c: ["Lucro líquido sem equivalência", ...proj.lucro_liquido.map((x, i) => mi(x - proj.equivalencia[i]))], cls: "sep" },
+    lp("+ Depreciação", "da"), lp("− Capex", "capex", mi, "", -1), lp("− Investimento em capital de giro", "variacao_giro", mi, "", -1),
+    lp("+ Captação líquida de dívida", "captacao_liquida"), lp("= FCFE, fluxo do acionista", "fcfe", mi, "forte"),
+  ]);
+
+  // ---- 11. CAPM e WACC
+  const lw = (rotulo, valor, conta = "", cls = "") => ({ c: [rotulo, valor, conta], cls, td: ["", "", "origem"] });
+  tabela("t-wacc", ["", { t: "Valor", cls: "num" }, { t: "Conta" }], [
+    lw("Juro sem risco (Rf)", pct(p.juro_sem_risco, 2), emp.origens.juro_sem_risco),
+    lw("Beta", nf(2).format(p.beta), emp.origens.beta),
+    lw("Prêmio de risco de mercado", pct(p.premio_mercado, 2), emp.origens.premio_mercado),
+    lw("Custo do capital próprio (Ke)", pct(v.ke, 2), "Ke = Rf + beta × prêmio de mercado + prêmio adicional", "forte"),
+    lw("Custo da dívida (Kd)", pct(p.custo_divida, 2), emp.origens.custo_divida, "sep"),
+    lw("Kd depois do imposto", pct(v.kd_liquido, 2), `Juro é dedutível: Kd × (1 − ${pct(p.aliquota_ir, 0)})`),
+    lw("Peso da dívida", pct(p.peso_divida, 0), emp.origens.peso_divida, "sep"),
+    lw("WACC pelo CAPM", pct(v.wacc_capm, 2), "Ke × peso do capital próprio + Kd depois do imposto × peso da dívida", "forte"),
+    lw("Ajuste do cenário", (v.ajuste_wacc > 0 ? "+" : "") + nf(2).format(v.ajuste_wacc * 100) + " p.p.", emp.origens.ajuste_wacc, "sep"),
+    lw("WACC em uso", pct(v.wacc, 2), "Desconta o FCFF", "forte"),
+    lw("Ke em uso", pct(v.ke_usado, 2), "Desconta o FCFE: o mesmo ajuste sobre o Ke"),
+  ]);
+
+  // ---- 12. EV e equity
+  const maior = Math.max(v.ev, v.vp_terminal, Math.abs(v.equity), v.divida_liquida, 1);
+  const lb = (rotulo, valor, cls = "") => `<div class="linha ${cls}"><span>${rotulo}</span><span><span class="barra" style="width:${Math.min(100, (Math.abs(valor) / maior) * 100)}%"></span></span><span class="num">${mi(valor)}</span></div>`;
+  el("ponte").innerHTML =
+    lb(`Fluxos de ${anosE[0]} a ${anosE.at(-1)}, a valor presente`, v.vp_fluxos) +
+    lb(`Perpetuidade, a valor presente (${pct(v.peso_terminal, 0)} do total)`, v.vp_terminal) +
+    lb("Enterprise Value", v.ev, "total") +
+    lb("− Dívida líquida em " + data(emp.data_base), v.divida_liquida, "menos") +
+    lb("− Minoritários", v.minoritarios, "menos") +
+    lb("+ Investimentos em coligadas", v.investimentos) +
+    (v.outros_ajustes ? lb("− Outros passivos", v.outros_ajustes, "menos") : "") +
+    lb("Equity Value", v.equity, "total") +
+    `<div class="linha"><span>÷ ${nf(0).format(emp.base.acoes)} milhões de ações</span><span></span><span class="num"><b>${sinal(v.preco_justo)}</b></span></div>
+     <div class="linha" style="color:var(--ink-3)"><span>Conferência pelo FCFE, descontado ao Ke</span><span></span><span class="num">${sinal(v.preco_fcfe)}</span></div>`;
+
+  // ---- 13. cenários: entradas e saídas de caixa
+  const soma = (...series) => series[0].map((_, i) => series.reduce((t, x) => t + x[i], 0));
+  const neg = (x) => x.map((y) => -y);
+  const operacao = soma(proj.ebitda, neg(proj.equivalencia));
+  const captou = proj.captacao_liquida.map((x) => Math.max(0, x)), amortizou = proj.captacao_liquida.map((x) => Math.max(0, -x));
+  const entradas = soma(operacao, proj.receita_financeira, captou);
+  const saidas = soma(proj.ir, proj.capex, proj.variacao_giro, proj.despesa_financeira, amortizou, proj.dividendos);
+  const lc = (rotulo, valores, cls = "") => ({ c: [rotulo, ...valores.map(mi)], cls });
+  tabela("t-caixa", cab(`R$ milhões, ${nomeCenario}`, anosE), [
+    titulo("Entradas (cash in)", n),
+    lc("Caixa gerado pela operação (EBITDA sem equivalência)", operacao), lc("Rendimento do caixa", proj.receita_financeira),
+    lc("Captação líquida de dívida", captou), lc("Total de entradas", entradas, "forte"),
+    titulo("Saídas (cash out)", n),
+    lc("Imposto de renda e CSLL", proj.ir), lc("Capex", proj.capex), lc("Investimento em capital de giro", proj.variacao_giro),
+    lc("Juros da dívida", proj.despesa_financeira), lc("Amortização líquida de dívida", amortizou), lc("Dividendos", proj.dividendos),
+    lc("Total de saídas", saidas, "forte"),
+    lc("Entradas menos saídas", soma(entradas, neg(saidas)), "forte sep"), lc("Caixa no fim do ano", proj.caixa_total),
+  ]);
+
+  const tres = Object.fromEntries(CENARIOS.map((c) => [c, rodar(emp, Modelo.doCenario(emp, c))]));
+  const colunas = [...CENARIOS.map((c) => tres[c]), { p, proj, v }];
+  const u = n - 1;
+  const lcen = (rotulo, pegar, cls = "") => ({ c: [rotulo, ...colunas.map(pegar)], cls, td: ["", "", "", "", "uso"] });
+  tabela("t-cenarios", cab("Os três cenários", [...CENARIOS.map((c) => DADOS.nomes_cenarios[c]), "Em uso"]), [
+    lcen("Crescimento da receita, ao ano", (r) => pct(r.p.crescimento_receita[u])),
+    lcen(`Margem EBITDA em ${emp.anos[u]}`, (r) => pct(r.p.margem_ebitda[u])),
+    lcen("WACC", (r) => pct(r.v.wacc)),
+    lcen("Preço por ação", (r) => sinal(r.v.preco_justo), "forte sep"),
+    lcen("Enterprise Value", (r) => mi(r.v.ev)), lcen("Equity Value", (r) => mi(r.v.equity)),
+    lcen(`Receita em ${emp.anos[u]}`, (r) => mi(r.proj.receita[u]), "sep"),
+    lcen(`EBITDA em ${emp.anos[u]}`, (r) => mi(r.proj.ebitda[u])),
+    lcen(`Caixa no fim de ${emp.anos[u]}`, (r) => mi(r.proj.caixa_total[u])),
+    lcen(`Dívida líquida / EBITDA em ${emp.anos[u]}`, (r) => vezes(r.proj.divida_liquida_ebitda[u])),
+  ]);
+
+  // ---- 14. sensibilidade
   tabela("t-sens", [{ t: "WACC \\ g" }, ...s.gs.map((g) => ({ t: pct(g, 1) }))],
     s.waccs.map((w, i) => ({
       c: [pct(w, 1), ...s.precos[i].map((x) => nf(2).format(x))],
       td: ["", ...s.precos[i].map((x, j) => (x >= v.preco_mercado ? "acima" : "abaixo") + (i === 2 && j === 2 ? " centro" : ""))],
     })), "sens");
-
-  // Faixas de valor
-  const cen = (nome) => rodar(emp, { ...estado.ajustes, preco: emp.cenarios[nome].variacao_preco[1] }).v.preco_justo;
+  const dosCenarios = CENARIOS.map((c) => tres[c].v.preco_justo);
   const grade = s.precos.flat();
-  const imp = DADOS.implicitos.filter((x) => x.ticker === emp.ticker && Number.isFinite(x.preco_implicito) && x.preco_implicito > 0).map((x) => x.preco_implicito);
+  const imp = DADOS.implicitos.filter((x) => x.ticker === emp.ticker && ok(x.preco_implicito) && x.preco_implicito > 0).map((x) => x.preco_implicito);
   faixas("g-faixas", [
-    { rotulo: "DCF, cenários de preço", min: cen("pessimista"), max: cen("otimista"), ponto: v.preco_justo, cor: "var(--accent)" },
+    { rotulo: "DCF, do pessimista ao otimista", min: Math.min(...dosCenarios), max: Math.max(...dosCenarios), ponto: v.preco_justo, cor: "var(--accent)" },
     { rotulo: "DCF, grade de WACC e g", min: Math.min(...grade), max: Math.max(...grade), ponto: v.preco_justo, cor: "var(--accent)" },
     { rotulo: "Múltiplos das comparáveis", min: imp.length ? Math.min(...imp) : NaN, max: Math.max(...imp), cor: "var(--hist)" },
     { rotulo: "Cotação em 52 semanas", min: emp.mercado.minimo_52s, max: emp.mercado.maximo_52s, cor: "var(--ore)" },
   ], v.preco_mercado);
 
-  // Múltiplos
-  const mult = (x) => (Number.isFinite(x) && x !== null ? vezes(x) : "n.a.");
-  const nomesM = { ev_ebitda: "EV/EBITDA", ev_ebit: "EV/EBIT", p_l: "P/L", p_vp: "P/VP" };
-  const linhasM = DADOS.multiplos.map((x) => ({ c: [`${x.empresa} (${x.ticker})`, bi(x.valor_de_mercado), bi(x.ev), mult(x.ev_ebitda), mult(x.ev_ebit), mult(x.p_l), mult(x.p_vp)], cls: x.ticker === emp.ticker ? "forte" : "" }));
-  const meus = Object.fromEntries(DADOS.implicitos.filter((x) => x.ticker === emp.ticker).map((x) => [x.multiplo, x]));
-  linhasM.push({ c: ["Mediana das outras quatro", "", "", ...Object.keys(nomesM).map((k) => mult(meus[k].mediana_pares))], cls: "sep" });
-  linhasM.push({ c: [`Preço implícito de ${emp.ticker}`, "", "", ...Object.keys(nomesM).map((k) => (Number.isFinite(meus[k].preco_implicito) && meus[k].preco_implicito !== null ? reais(meus[k].preco_implicito) : "n.a."))], cls: "forte" });
-  tabela("t-multiplos", ["Empresa", "Valor de mercado", "EV", ...Object.values(nomesM)].map((t, i) => (i ? { t, cls: "num" } : t)), linhasM);
-
-  // Histórico
-  const lh = (rotulo, nome, fmt = mi) => ({ c: [rotulo, ...h[nome].map((x) => (Number.isFinite(x) ? fmt(x) : "–"))] });
-  tabela("t-historico", ["R$ milhões", ...h.periodos.map((t) => ({ t, cls: "num" }))], [
-    lh("Receita líquida", "receita"), lh("EBITDA", "ebitda"), lh("Margem EBITDA", "margem_ebitda", pct), lh("EBIT", "ebit"),
-    lh("Lucro líquido", "lucro_liquido"), lh("Caixa operacional", "fco"), lh("Capex", "capex"), lh("Depreciação", "da"),
-    lh("Dívida líquida", "divida_liquida"), lh("Dívida líquida / EBITDA", "divida_liquida_ebitda", vezes), lh("ROIC", "roic", pct), lh("ROE", "roe", pct),
-  ]);
-
-  // Premissas
-  const fmtPrem = (nome, x) => (/prazo/.test(nome) ? nf(0).format(x) : /equivalencia|captacao|outros_ajustes/.test(nome) ? mi(x) : /beta/.test(nome) ? nf(2).format(x) : /capex_perpetuidade/.test(nome) ? vezes(x) : pct(x, 1));
-  const porAno = Object.keys(emp.premissas).filter((k) => Array.isArray(emp.premissas[k]));
-  tabela("t-prem-ano", ["Premissa", ...anosE.map((t) => ({ t, cls: "num" })), { t: "De onde veio" }],
-    porAno.map((k) => ({ c: [DADOS.rotulos[k], ...p[k].map((x) => fmtPrem(k, x)), emp.origens[k]], td: [...Array(emp.anos.length + 1).fill(""), "origem"] })));
+  // ---- premissas
+  tabela("t-prem-cenario", ["Variável", { t: `Partida ${emp.anos[0]}`, cls: "num" }, ...CENARIOS.map((c) => ({ t: DADOS.nomes_cenarios[c], cls: "num" })), { t: "Em uso", cls: "num" }, { t: "De onde veio" }],
+    VARIAVEIS.map((x) => {
+      const c = emp.cenarios[x.id];
+      return {
+        c: [x.rotulo, c.partida == null ? "–" : pct(c.partida), ...CENARIOS.map((k) => mostrar(emp, x.id, c[k])), mostrar(emp, x.id, estado.valores[x.id]), c.origem],
+        td: ["", "", "", "", "", "uso", "origem"],
+      };
+    }));
+  const fmtPrem = (nome, x) => (/prazo/.test(nome) ? dias(x) : /equivalencia|captacao|outros_ajustes/.test(nome) ? mi(x) : /beta/.test(nome) ? nf(2).format(x) : /capex_perpetuidade/.test(nome) ? vezes(x) : pct(x, 1));
+  const fixas = Object.keys(emp.premissas).filter((k) => !VARIAVEIS.some((x) => x.id === k) && k !== "margem_ebitda" && k !== "crescimento_receita");
+  tabela("t-prem-ano", [...cab("Premissa", anosE), { t: "De onde veio" }],
+    fixas.filter((k) => Array.isArray(p[k])).map((k) => ({ c: [DADOS.rotulos[k], ...p[k].map((x) => fmtPrem(k, x)), emp.origens[k]], td: [...Array(n + 1).fill(""), "origem"] })));
   tabela("t-prem-geral", ["Premissa", { t: "Valor", cls: "num" }, { t: "De onde veio" }],
-    Object.keys(emp.premissas).filter((k) => !Array.isArray(emp.premissas[k])).map((k) => ({ c: [DADOS.rotulos[k], fmtPrem(k, p[k]), emp.origens[k]], td: ["", "", "origem"] })));
+    fixas.filter((k) => !Array.isArray(p[k])).map((k) => ({ c: [DADOS.rotulos[k], fmtPrem(k, p[k]), emp.origens[k]], td: ["", "", "origem"] })));
 
-  const data = (i) => DADOS.macro.find((x) => x.indicador === i).data.split("-").reverse().join("/");
-  el("fontes").textContent = `Fontes: demonstrações consolidadas na CVM (DFP 2018–2025 e ITR até ${emp.data_base.split("-").reverse().join("/")}); cotações da B3 (COTAHIST); Tesouro Direto (${data("juro_prefixado_longo")}); Boletim Focus do Banco Central (${data("ipca_2030")}); prêmios de risco de Aswath Damodaran, NYU (${data("premio_mercado_maduro")}).`;
+  const quando = (i) => data(DADOS.macro.find((x) => x.indicador === i).data);
+  el("fontes").textContent = `Fontes: demonstrações consolidadas na CVM (DFP 2018–2025 e ITR até ${data(emp.data_base)}); cotações da B3 (COTAHIST); Tesouro Direto (${quando("juro_prefixado_longo")}); Boletim Focus do Banco Central (${quando("ipca_2030")}); prêmio de risco de Aswath Damodaran, NYU (${quando("premio_mercado_maduro")}).`;
 }
 
 montarControles();
