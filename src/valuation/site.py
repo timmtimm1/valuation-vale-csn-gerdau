@@ -13,10 +13,16 @@ from typing import Any
 import pandas as pd
 
 from valuation import historico, modelo, multiplos, premissas
-from valuation.empresas import FOCO, SITE
+from valuation.empresas import FOCO, PAGINA, REPOSITORIO, SITE
 from valuation.macro import MACRO_CSV
+from valuation.planilha import ARQUIVO
 
 CORPO = '<div class="wrap">'
+LIGACOES = "<!--__LIGACOES__-->"
+DESCRICAO = (
+    "Valuation de VALE3, CSNA3 e GGBR4 por fluxo de caixa descontado e por múltiplos, "
+    "com três cenários ajustáveis e só dados públicos."
+)
 
 # Linhas do histórico que a página mostra.
 HISTORICO = (
@@ -125,20 +131,36 @@ def dados_da_pagina() -> dict[str, Any]:
     }
 
 
+def _ligacoes() -> str:
+    """Links da página publicada: a planilha, o código e o registro das fontes."""
+    return (
+        f'<p><a href="{REPOSITORIO}/raw/main/saida/{ARQUIVO.name}">Baixar a planilha (.xlsx)</a>'
+        f' · <a href="{REPOSITORIO}">código e dados no GitHub</a>'
+        f' · <a href="{REPOSITORIO}/blob/main/FONTES.md">fonte de cada dado</a>'
+        f' · <a href="{REPOSITORIO}/tree/main/analises">preços no dia da análise</a></p>'
+    )
+
+
 def construir() -> Path:
     """Grava a página completa (index.html) e o fragmento para publicar como artefato."""
     molde = (SITE / "pagina.html").read_text(encoding="utf-8")
     motor = (SITE / "modelo.js").read_text(encoding="utf-8")
     dados = json.dumps(dados_da_pagina(), ensure_ascii=False, separators=(",", ":"))
     fragmento = molde.replace("/*__MODELO__*/", motor).replace("/*__DADOS__*/", dados)
-    (SITE / "artefato.html").write_text(fragmento, encoding="utf-8")
+    # O artefato não deixa baixar arquivo: os links ficam só na página completa.
+    (SITE / "artefato.html").write_text(fragmento.replace(LIGACOES, ""), encoding="utf-8")
 
     # O molde começa por <title>, <link> e <style>: isso vai no <head> da página completa.
-    cabeca, corpo = fragmento.split(CORPO, 1)
+    cabeca, corpo = fragmento.replace(LIGACOES, _ligacoes()).split(CORPO, 1)
     destino = SITE / "index.html"
     destino.write_text(
         '<!doctype html>\n<html lang="pt-BR">\n<head>\n<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        f'<meta name="description" content="{DESCRICAO}">\n'
+        '<meta property="og:type" content="website">\n'
+        '<meta property="og:title" content="Valuation: Vale, CSN e Gerdau">\n'
+        f'<meta property="og:description" content="{DESCRICAO}">\n'
+        f'<meta property="og:url" content="{PAGINA}">\n'
         f'{cabeca}</head>\n<body style="margin:0">\n{CORPO}{corpo}</body>\n</html>\n',
         encoding="utf-8",
     )
