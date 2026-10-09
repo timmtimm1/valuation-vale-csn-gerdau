@@ -1,0 +1,62 @@
+ticker: VALE3
+empresa: Vale
+status: proposta
+data_base: '2026-06-30'
+ano_base: 2025
+anos: [2026, 2027, 2028, 2029, 2030]
+premissas:
+  crescimento_volume:
+    valores: [0.0, 0.0, 0.0, 0.0, 0.0]
+    origem: 'Volume constante. A CVM não publica toneladas: usar o guidance da empresa.'
+  variacao_preco:
+    valores: [0.0209, 0.043, 0.038, 0.0351, 0.035]
+    origem: '2026: receita dos últimos 12 meses (LTM 2T26) sobre 2025. 2027 em diante: IPCA esperado no
+      Focus (preço constante em termos reais).'
+  inflacao_custos:
+    valores: [0.0206, 0.043, 0.038, 0.0351, 0.035]
+    origem: '2026: custo caixa dos últimos 12 meses sobre 2025. 2027 em diante: IPCA esperado no Focus.'
+  outras_pct:
+    valores: [-0.1739, -0.1479, -0.122, -0.096, -0.0701]
+    origem: Do nível dos últimos 12 meses até a mediana de 2021-2025.
+  equivalencia:
+    valores: [-1570.0, -1570.0, -1570.0, -1570.0, -1570.0]
+    origem: Mediana de 2021-2025, mantida.
+  capex_pct:
+    valores: [0.146, 0.1449, 0.1437, 0.1426, 0.1415]
+    origem: Do nível dos últimos 12 meses até a mediana de 2021-2025.
+  depreciacao_pct:
+    valores: [0.0569, 0.0569, 0.0569, 0.0569, 0.0569]
+    origem: Mediana de 2021-2025, mantida.
+  captacao_liquida:
+    valores: [0.0, 0.0, 0.0, 0.0, 0.0]
+    origem: Dívida bruta mantida no nível de 2025.
+  prazo_recebimento:
+    valores: [21.598, 21.598, 21.598, 21.598, 21.598]
+    origem: Prazo de 2025, mantido.
+  prazo_estoque:
+    valores: [98.067, 98.067, 98.067, 98.067, 98.067]
+    origem: Prazo de 2025, mantido.
+  prazo_pagamento:
+    valores: [91.9277, 91.9277, 91.9277, 91.9277, 91.9277]
+    origem: Prazo de 2025, mantido.
+  aliquota_ir: {valor: 0.34, origem: 'Alíquota nominal: IRPJ 25% + CSLL 9%.'}
+  custo_divida: {valor: 0.1291, origem: 'Piso: a taxa do Tesouro prefixado de dez anos, sem spread de
+      crédito. Custo implícito mediano 2023-2025: 17.8%.'}
+  rendimento_caixa: {valor: 0.0936, origem: Mediana 2023-2025 da receita financeira sobre o caixa médio.}
+  payout: {valor: 0.679, origem: 'Mediana 2021-2025 de dividendos pagos sobre lucro, limitada a 0-100%.'}
+  juro_sem_risco: {valor: 0.1291, origem: 'Tesouro prefixado de dez anos (em reais, nominal).'}
+  beta: {valor: 0.7558, origem: 'Regressão de 5 anos, retornos semanais contra o BOVA11, preços sem ajuste
+      de proventos. Beta de 2 anos: 0.64.'}
+  premio_mercado: {valor: 0.0423, origem: 'Damodaran, mercado maduro. O risco-país já está no juro em
+      reais.'}
+  premio_adicional: {valor: 0.0, origem: Sem prêmio adicional.}
+  peso_divida: {valor: 0.2625, origem: Dívida bruta do 2T26 sobre dívida mais valor de mercado.}
+  crescimento_perpetuo: {valor: 0.035, origem: 'IPCA esperado para 2030: crescimento real zero.'}
+  capex_perpetuidade: {valor: 1.0, origem: Na perpetuidade a empresa reinveste o que deprecia.}
+  outros_ajustes: {valor: 0.0, origem: 'Nenhum. Provisões (barragens, contingências) não entram como dívida.'}
+cenarios:
+  origem: Choque de 5% no preço em 2027, mantido depois. Ilustrativo.
+  pessimista:
+    variacao_preco: [0.0, -0.05, 0.0, 0.0, 0.0]
+  otimista:
+    variacao_preco: [0.0, 0.05, 0.0, 0.0, 0.0]
