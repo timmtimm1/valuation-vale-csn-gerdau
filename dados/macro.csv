@@ -8,5 +8,6 @@ ipca_2027,0.043007,2026-10-02,"Focus, mediana de 144 instituições",https://oli
 ipca_2028,0.038007,2026-10-02,"Focus, mediana de 118 instituições",https://olinda.bcb.gov.br/olinda/servico/Expectativas/versao/v1/odata/ExpectativasMercadoAnuais
 ipca_2029,0.035108,2026-10-02,"Focus, mediana de 110 instituições",https://olinda.bcb.gov.br/olinda/servico/Expectativas/versao/v1/odata/ExpectativasMercadoAnuais
 ipca_2030,0.035000,2026-10-02,"Focus, mediana de 105 instituições",https://olinda.bcb.gov.br/olinda/servico/Expectativas/versao/v1/odata/ExpectativasMercadoAnuais
+cdi,0.136500,2026-10-08,"CDI ao ano, base 252 dias úteis",https://api.bcb.gov.br/dados/serie/bcdata.sgs.4389/dados/ultimos/5
 premio_mercado_maduro,0.042300,2026-02-16,Prêmio de risco de mercado maduro (total do Brasil menos risco-país),https://pages.stern.nyu.edu/~adamodar/pc/datasets/ctryprem.xlsx
 premio_risco_brasil,0.032410,2026-02-16,Risco-país pelo rating Ba1,https://pages.stern.nyu.edu/~adamodar/pc/datasets/ctryprem.xlsx
