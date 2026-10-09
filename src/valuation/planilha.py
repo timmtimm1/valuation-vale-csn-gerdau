@@ -808,7 +808,7 @@ def _aba_projecao(wb: Workbook, anos: list[int], hist: Aba, col_hist: int, fcff:
         "despesa_financeira",
         "(-) Juros da dívida",
         None,
-        lambda c: f"={a('divida_bruta', c)}*{P('juros_divida')}",
+        lambda c: f"={a('divida_bruta', c)}*{P('custo_divida')}",
     )
     linha(
         "resultado_financeiro",

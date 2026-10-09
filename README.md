@@ -117,10 +117,6 @@ Python linha a linha.
   separados, porque a CVM não publica dados operacionais. O custo dos produtos é o que
   sobra depois de fixada a margem.
 - O cenário desloca o WACC e o Ke no mesmo tanto, sem refazer o CAPM.
-- O custo da dívida vem do que cada empresa divulga (`premissas/divida_divulgada.yaml`). Os
-  juros da projeção usam a taxa como divulgada; no WACC, a parte em dólar é trazida para
-  reais pela diferença de inflação. A CSN não divulga custo médio: os juros saem do que ela
-  pagou em 2025 e o WACC mantém a taxa do Tesouro.
 - Toda a depreciação é tratada como custo de produção.
 - Juros calculados sobre os saldos do início do ano, para não haver referência circular.
 - Provisões (barragens, contingências) não entram como dívida, a menos que o analista

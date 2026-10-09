@@ -46,8 +46,7 @@ POR_ANO = {
 }
 ESCALARES = {
     "aliquota_ir": "Alíquota de IR e CSLL",
-    "juros_divida": "Juros pagos sobre a dívida (% do saldo inicial)",
-    "custo_divida": "Custo da dívida no WACC, em reais, antes do imposto (Kd)",
+    "custo_divida": "Custo da dívida antes do imposto (Kd)",
     "rendimento_caixa": "Rendimento do caixa",
     "payout": "Dividendos (% do lucro)",
     "juro_sem_risco": "Juro sem risco (Rf)",
@@ -62,13 +61,6 @@ ESCALARES = {
 # O crescimento otimista vem do histórico, mas parte dele foi aquisição: fica limitado
 # a este tanto acima da inflação.
 TETO_CRESCIMENTO_REAL = 0.04
-DIVIDA_YAML = PREMISSAS / "divida_divulgada.yaml"
-INFLACAO_EUA = 0.02  # meta do Federal Reserve
-
-
-def _pct(valor: float, casas: int = 1) -> str:
-    """Percentual escrito como se lê em português: vírgula decimal."""
-    return f"{valor * 100:.{casas}f}%".replace(".", ",")
 
 
 def caminho(ticker: str) -> Path:
@@ -88,53 +80,6 @@ def _cenario(pessimista: float, moderado: float, otimista: float, origem: str) -
         "otimista": round(float(otimista), 4),
         "origem": origem,
     }
-
-
-def custo_da_divida(
-    ticker: str, h: pd.DataFrame, m: dict[str, float]
-) -> tuple[float, float, str, str]:
-    """Juros pagos e custo da dívida em reais, a partir do que a empresa divulga.
-
-    Devolve (juros pagos, custo no WACC, origem dos juros, origem do custo). `h` é o
-    histórico da empresa, indexado pelo período.
-    """
-    divulgado = yaml.safe_load(DIVIDA_YAML.read_text(encoding="utf-8"))[ticker]
-    fonte = " ".join(divulgado["fonte"].split())
-    parcelas = divulgado["parcelas"]
-    if not parcelas:
-        # Sem custo divulgado: o que ela pagou de juros sobre a dívida média do ano.
-        ano = divulgado["juros_pagos"]["ano"]
-        media = (h.loc[str(ano), "divida_bruta"] + h.loc[str(ano - 1), "divida_bruta"]) / 2
-        pagos = divulgado["juros_pagos"]["valor"] / media
-        return (
-            pagos,
-            m["juro_prefixado_longo"],
-            fonte,
-            "A empresa não divulga custo médio: mantido o piso, a taxa do Tesouro prefixado de"
-            " dez anos, sem spread de crédito.",
-        )
-
-    inflacao = m[f"ipca_{ANOS[-1]}"]
-    total = sum(p["peso"] for p in parcelas)
-    pagos = custo = 0.0
-    for p in parcelas:
-        peso = p["peso"] / total
-        if p["indexador"] == "dolar":
-            pagos += peso * p["taxa"]
-            # Em reais a dívida em dólar custa a taxa mais o que o real perde para o dólar.
-            custo += peso * ((1 + p["taxa"]) * (1 + inflacao) / (1 + INFLACAO_EUA) - 1)
-        else:
-            pagos += peso * (m["cdi"] + p["taxa"])
-            custo += peso * (m["cdi"] + p["taxa"])
-    tem_dolar = any(p["indexador"] == "dolar" for p in parcelas)
-    conversao = (
-        f" A parte em dólar foi trazida para reais pela diferença de inflação"
-        f" ({_pct(inflacao, 1)} no Brasil, {_pct(INFLACAO_EUA, 1)} nos EUA)."
-        if tem_dolar
-        else ""
-    )
-    cdi = f" CDI de {_pct(m['cdi'], 2)}." if any(p["indexador"] == "cdi" for p in parcelas) else ""
-    return pagos, custo, fonte + cdi, fonte + cdi + conversao
 
 
 def propor(ticker: str) -> dict[str, Any]:
@@ -165,7 +110,7 @@ def propor(ticker: str) -> dict[str, Any]:
     ) - 1
     teto = inflacao + TETO_CRESCIMENTO_REAL
     sobre_o_teto = (
-        f", limitado a {_pct(TETO_CRESCIMENTO_REAL, 0)} acima da inflação porque parte veio de"
+        f", limitado a {TETO_CRESCIMENTO_REAL:.0%} acima da inflação porque parte veio de"
         " aquisições."
         if crescimento_historico > teto
         else "."
@@ -183,7 +128,7 @@ def propor(ticker: str) -> dict[str, Any]:
                 partida + "Pessimista: receita parada, ou seja, queda real. Moderado: inflação"
                 f" esperada no Focus para {ANOS[1]}-{ANOS[-1]}, crescimento real zero. Otimista:"
                 f" crescimento médio da receita de {primeiro} a {ANO_BASE}"
-                f" ({_pct(crescimento_historico, 1)} ao ano){sobre_o_teto}",
+                f" ({crescimento_historico:.1%} ao ano){sobre_o_teto}",
             ),
         },
         "margem_ebitda": {
@@ -202,8 +147,8 @@ def propor(ticker: str) -> dict[str, Any]:
             0.0,
             -amplitude,
             "Moderado: o WACC que sai do CAPM. O juro prefixado longo andou de"
-            f" {_pct(m['juro_prefixado_minimo'])} a {_pct(m['juro_prefixado_maximo'])} nos"
-            " últimos dois anos; pessimista e otimista deslocam o WACC em metade dessa amplitude.",
+            f" {m['juro_prefixado_minimo']:.1%} a {m['juro_prefixado_maximo']:.1%} nos últimos"
+            " dois anos; pessimista e otimista deslocam o WACC em metade dessa amplitude.",
         ),
     }
 
@@ -230,12 +175,13 @@ def propor(ticker: str) -> dict[str, Any]:
         p[prazo] = por_ano([base[prazo]] * n, f"Prazo de {ANO_BASE}, mantido.")
 
     divida = ltm["divida_bruta"]
-    beta_2a = f"{mercado['beta_2a']:.2f}".replace(".", ",")
-    juros_pagos, custo_wacc, origem_juros, origem_custo = custo_da_divida(ticker, h, m)
     p |= {
         "aliquota_ir": escalar(historico.ALIQUOTA_IR, "Alíquota nominal: IRPJ 25% + CSLL 9%."),
-        "juros_divida": escalar(juros_pagos, origem_juros),
-        "custo_divida": escalar(custo_wacc, origem_custo),
+        "custo_divida": escalar(
+            m["juro_prefixado_longo"],
+            "Piso: a taxa do Tesouro prefixado de dez anos, sem spread de crédito."
+            f" Custo implícito mediano 2023-2025: {tres['custo_implicito_divida'].median():.1%}.",
+        ),
         "rendimento_caixa": escalar(
             tres["rendimento_implicito_caixa"].median(),
             "Mediana 2023-2025 da receita financeira sobre o caixa médio.",
@@ -250,7 +196,7 @@ def propor(ticker: str) -> dict[str, Any]:
         "beta": escalar(
             mercado["beta_5a"],
             "Regressão de 5 anos, retornos semanais contra o BOVA11, preços sem ajuste de"
-            f" proventos. Beta de 2 anos: {beta_2a}.",
+            f" proventos. Beta de 2 anos: {mercado['beta_2a']:.2f}.",
         ),
         "premio_mercado": escalar(
             m["premio_mercado_maduro"],

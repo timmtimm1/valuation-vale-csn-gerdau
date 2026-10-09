@@ -89,30 +89,3 @@ def test_desconto_de_um_fluxo_conhecido() -> None:
     vp, terminal = modelo._valor_presente([100.0, 100.0], 100.0, 0.10, 0.0, 1.0)
     assert vp == pytest.approx(100 / 1.1**0.5 + 100 / 1.1**1.5)
     assert terminal == pytest.approx(1000 / 1.1**2)
-
-
-def test_juros_pagos_da_csn_vem_do_fluxo_de_caixa_da_cvm() -> None:
-    # o valor digitado em premissas/divida_divulgada.yaml tem de ser o da linha da CVM
-    import pandas as pd
-    import yaml
-
-    from valuation.cvm import CONTAS_CSV
-
-    divulgado = yaml.safe_load(premissas.DIVIDA_YAML.read_text(encoding="utf-8"))["CSNA3"]
-    contas = pd.read_csv(CONTAS_CSV, dtype={"cd_conta": str})
-    ano = divulgado["juros_pagos"]["ano"]
-    linha = contas[
-        (contas["ticker"] == "CSNA3")
-        & (contas["doc"] == "DFP")
-        & (contas["dt_refer"] == f"{ano}-12-31")
-        & (contas["ds_conta"] == "Juros pagos")
-    ]
-    assert len(linha) == 1
-    assert divulgado["juros_pagos"]["valor"] == pytest.approx(-linha["valor"].iloc[0])
-
-
-def test_custo_da_divida_em_reais_nao_fica_abaixo_dos_juros_pagos(rodada: dict) -> None:
-    # a parte em dólar ganha a diferença de inflação ao vir para reais: nunca reduz o custo
-    p = rodada["premissas"]
-    assert p["custo_divida"] >= p["juros_divida"]
-    assert 0.03 < p["juros_divida"] < 0.20
