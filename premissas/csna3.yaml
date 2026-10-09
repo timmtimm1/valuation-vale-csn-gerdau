@@ -8,13 +8,13 @@ cenarios:
   crescimento_receita: {partida: 0.0069, pessimista: 0.0, moderado: 0.0378, otimista: 0.0778, origem: '2026:
       nível dos últimos 12 meses (LTM 2T26). Pessimista: receita parada, ou seja, queda real. Moderado:
       inflação esperada no Focus para 2027-2030, crescimento real zero. Otimista: crescimento médio da
-      receita de 2018 a 2025 (10.0% ao ano), limitado a 4% acima da inflação porque parte veio de aquisições.'}
+      receita de 2018 a 2025 (10,0% ao ano), limitado a 4% acima da inflação porque parte veio de aquisições.'}
   margem_ebitda: {partida: 0.1713, pessimista: 0.1884, moderado: 0.2002, otimista: 0.237, origem: '2026:
       nível dos últimos 12 meses (LTM 2T26). Daí até 2030 em linha reta. Faixa: margem EBITDA de 2021
       a 2025, sem perdas por recuperabilidade. Pessimista é o segundo pior ano, moderado a mediana e otimista
       o segundo melhor.'}
   ajuste_wacc: {pessimista: 0.0156, moderado: 0.0, otimista: -0.0156, origem: 'Moderado: o WACC que sai
-      do CAPM. O juro prefixado longo andou de 12.2% a 15.3% nos últimos dois anos; pessimista e otimista
+      do CAPM. O juro prefixado longo andou de 12,2% a 15,3% nos últimos dois anos; pessimista e otimista
       deslocam o WACC em metade dessa amplitude.'}
 premissas:
   despesas_pct:
@@ -43,13 +43,13 @@ premissas:
     valores: [0.0, 0.0, 0.0, 0.0, 0.0]
     origem: Dívida bruta mantida no nível de 2025.
   aliquota_ir: {valor: 0.34, origem: 'Alíquota nominal: IRPJ 25% + CSLL 9%.'}
-  custo_divida: {valor: 0.1291, origem: 'Piso: a taxa do Tesouro prefixado de dez anos, sem spread de
-      crédito. Custo implícito mediano 2023-2025: 14.2%.'}
+  custo_divida: {valor: 0.1291, origem: 'A taxa do Tesouro prefixado de dez anos, a mesma para as três
+      empresas. Custo implícito mediano 2023-2025: 14,2%.'}
   rendimento_caixa: {valor: 0.0772, origem: Mediana 2023-2025 da receita financeira sobre o caixa médio.}
   payout: {valor: 0.242, origem: 'Mediana 2021-2025 de dividendos pagos sobre lucro, limitada a 0-100%.'}
   juro_sem_risco: {valor: 0.1291, origem: 'Tesouro prefixado de dez anos (em reais, nominal).'}
   beta: {valor: 1.483, origem: 'Regressão de 5 anos, retornos semanais contra o BOVA11, preços sem ajuste
-      de proventos. Beta de 2 anos: 1.48.'}
+      de proventos. Beta de 2 anos: 1,48.'}
   premio_mercado: {valor: 0.0423, origem: 'Damodaran, mercado maduro. O risco-país já está no juro em
       reais.'}
   premio_adicional: {valor: 0.0, origem: Sem prêmio adicional.}

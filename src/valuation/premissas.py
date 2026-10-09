@@ -63,6 +63,11 @@ ESCALARES = {
 TETO_CRESCIMENTO_REAL = 0.04
 
 
+def _pct(valor: float, casas: int = 1) -> str:
+    """Percentual escrito como se lê em português: vírgula decimal."""
+    return f"{valor * 100:.{casas}f}%".replace(".", ",")
+
+
 def caminho(ticker: str) -> Path:
     return PREMISSAS / f"{ticker.lower()}.yaml"
 
@@ -110,7 +115,7 @@ def propor(ticker: str) -> dict[str, Any]:
     ) - 1
     teto = inflacao + TETO_CRESCIMENTO_REAL
     sobre_o_teto = (
-        f", limitado a {TETO_CRESCIMENTO_REAL:.0%} acima da inflação porque parte veio de"
+        f", limitado a {_pct(TETO_CRESCIMENTO_REAL, 0)} acima da inflação porque parte veio de"
         " aquisições."
         if crescimento_historico > teto
         else "."
@@ -128,7 +133,7 @@ def propor(ticker: str) -> dict[str, Any]:
                 partida + "Pessimista: receita parada, ou seja, queda real. Moderado: inflação"
                 f" esperada no Focus para {ANOS[1]}-{ANOS[-1]}, crescimento real zero. Otimista:"
                 f" crescimento médio da receita de {primeiro} a {ANO_BASE}"
-                f" ({crescimento_historico:.1%} ao ano){sobre_o_teto}",
+                f" ({_pct(crescimento_historico, 1)} ao ano){sobre_o_teto}",
             ),
         },
         "margem_ebitda": {
@@ -147,8 +152,8 @@ def propor(ticker: str) -> dict[str, Any]:
             0.0,
             -amplitude,
             "Moderado: o WACC que sai do CAPM. O juro prefixado longo andou de"
-            f" {m['juro_prefixado_minimo']:.1%} a {m['juro_prefixado_maximo']:.1%} nos últimos"
-            " dois anos; pessimista e otimista deslocam o WACC em metade dessa amplitude.",
+            f" {_pct(m['juro_prefixado_minimo'])} a {_pct(m['juro_prefixado_maximo'])} nos"
+            " últimos dois anos; pessimista e otimista deslocam o WACC em metade dessa amplitude.",
         ),
     }
 
@@ -175,12 +180,14 @@ def propor(ticker: str) -> dict[str, Any]:
         p[prazo] = por_ano([base[prazo]] * n, f"Prazo de {ANO_BASE}, mantido.")
 
     divida = ltm["divida_bruta"]
+    beta_2a = f"{mercado['beta_2a']:.2f}".replace(".", ",")
+    implicito = tres["custo_implicito_divida"].median()
     p |= {
         "aliquota_ir": escalar(historico.ALIQUOTA_IR, "Alíquota nominal: IRPJ 25% + CSLL 9%."),
         "custo_divida": escalar(
             m["juro_prefixado_longo"],
-            "Piso: a taxa do Tesouro prefixado de dez anos, sem spread de crédito."
-            f" Custo implícito mediano 2023-2025: {tres['custo_implicito_divida'].median():.1%}.",
+            "A taxa do Tesouro prefixado de dez anos, a mesma para as três empresas."
+            f" Custo implícito mediano 2023-2025: {_pct(implicito)}.",
         ),
         "rendimento_caixa": escalar(
             tres["rendimento_implicito_caixa"].median(),
@@ -196,7 +203,7 @@ def propor(ticker: str) -> dict[str, Any]:
         "beta": escalar(
             mercado["beta_5a"],
             "Regressão de 5 anos, retornos semanais contra o BOVA11, preços sem ajuste de"
-            f" proventos. Beta de 2 anos: {mercado['beta_2a']:.2f}.",
+            f" proventos. Beta de 2 anos: {beta_2a}.",
         ),
         "premio_mercado": escalar(
             m["premio_mercado_maduro"],
