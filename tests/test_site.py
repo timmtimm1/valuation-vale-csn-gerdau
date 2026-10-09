@@ -68,3 +68,25 @@ def test_links_publicos_ficam_so_na_pagina_completa(
     assert f'href="{REPOSITORIO}/blob/main/FONTES.md"' in pagina
     assert REPOSITORIO not in artefato
     assert site.LIGACOES not in pagina + artefato
+
+
+def test_pagina_mostra_a_analise_do_leiame(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    for nome in ("pagina.html", "modelo.js"):
+        shutil.copy(SITE / nome, tmp_path / nome)
+    monkeypatch.setattr(site, "SITE", tmp_path)
+    pagina = site.construir().read_text(encoding="utf-8")
+    artefato = (tmp_path / "artefato.html").read_text(encoding="utf-8")
+    leiame = site.LEIAME.read_text(encoding="utf-8")
+    for texto in (pagina, artefato):
+        # O resumo com a tabela vem antes das abas; a análise completa, no fim.
+        assert texto.index('<div class="rolagem"><table>') < texto.index('id="abas"')
+        assert texto.index("Por que a Vale se destaca") > texto.index('id="sensibilidade"')
+        assert "Isto não é recomendação de investimento" in texto
+        assert "ersão de trabalho" not in texto
+        assert not any(marca in texto for marca in site.TRECHOS)
+    # Cada parágrafo da análise no README aparece na página, sem os marcadores.
+    analise = leiame.split("<!-- analise:inicio -->")[1].split("<!-- analise:fim -->")[0]
+    for paragrafo in analise.split("\n\n"):
+        linha = " ".join(paragrafo.split())
+        if linha and not linha.startswith(("#", "-")):
+            assert linha in " ".join(pagina.split()), linha[:60]

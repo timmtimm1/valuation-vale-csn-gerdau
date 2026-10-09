@@ -55,7 +55,18 @@ p { margin: 0; }
 .lede { color: var(--ink-2); max-width: 68ch; margin-top: 10px; }
 .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .eyebrow { font-size: 0.72rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
-.aviso { background: var(--warn-bg); color: var(--warn-ink); padding: 10px 14px; border-radius: 6px; font-size: 0.88rem; max-width: 90ch; }
+.resumo { display: grid; gap: 12px; }
+.resumo p, .prosa p, .prosa li { max-width: 72ch; }
+.resumo p:first-of-type { color: var(--ink-3); font-size: 0.85rem; }
+/* A tabela do resumo tem de caber no celular sem rolar: três empresas lado a lado. */
+.resumo table, .prosa table { max-width: 760px; }
+.resumo th, .resumo td { padding-inline: 6px; }
+.resumo th { white-space: normal; }
+.resumo th:first-child, .resumo td:first-child { min-width: 100px; }
+.prosa { display: grid; gap: 12px; line-height: 1.6; }
+.prosa h3 { font-family: var(--display); font-stretch: 88%; font-weight: 700; font-size: 1.05rem; margin: 14px 0 0; }
+.prosa h3:first-child { margin-top: 0; }
+.prosa ul { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; }
 
 .abas { display: flex; flex-wrap: wrap; gap: 8px; }
 .abas button { font: inherit; font-family: var(--display); font-stretch: 85%; font-weight: 700; font-size: 1.05rem; padding: 9px 18px; border: 1.5px solid var(--line); background: transparent; color: var(--ink-2); border-radius: 4px; cursor: pointer; }
@@ -142,10 +153,86 @@ a { color: var(--accent); }
   <header>
     <p class="eyebrow">Mineração e siderurgia · B3 · R$ milhões</p>
     <h1>Quanto valem Vale, CSN e Gerdau?</h1>
-    <p class="lede">Um modelo de valuation montado com dados públicos da CVM e da B3. Escolha o cenário, ajuste as três variáveis dentro da faixa e veja o preço por ação mudar na hora.</p>
+    <p class="lede">Montei este modelo com os balanços que as três empresas entregam à CVM e as cotações da B3. Abaixo está o que encontrei. Depois, escolha a empresa e o cenário, mexa nas três variáveis e veja o preço por ação mudar.</p>
   </header>
 
-  <p class="aviso" id="aviso"></p>
+  <section class="resumo cartao" aria-label="Resumo da análise">
+    <span class="eyebrow">O que os números dizem</span>
+    <p>Análise de 9 de outubro de 2026. Os preços são do fechamento do dia 8 e os balanços vão até
+junho de 2026. Os valores dos cenários são por ação.</p>
+<div class="rolagem"><table>
+<thead>
+<tr>
+<th></th>
+<th style="text-align: right;">Vale (VALE3)</th>
+<th style="text-align: right;">CSN (CSNA3)</th>
+<th style="text-align: right;">Gerdau (GGBR4)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Preço na bolsa</td>
+<td style="text-align: right;">R$ 67,64</td>
+<td style="text-align: right;">R$ 6,36</td>
+<td style="text-align: right;">R$ 24,77</td>
+</tr>
+<tr>
+<td>Valor no cenário pessimista</td>
+<td style="text-align: right;">R$ 51,05</td>
+<td style="text-align: right;">−R$ 8,04</td>
+<td style="text-align: right;">R$ 11,49</td>
+</tr>
+<tr>
+<td>Valor no cenário moderado</td>
+<td style="text-align: right;">R$ 84,07</td>
+<td style="text-align: right;">R$ 4,42</td>
+<td style="text-align: right;">R$ 21,38</td>
+</tr>
+<tr>
+<td>Valor no cenário otimista</td>
+<td style="text-align: right;">R$ 138,61</td>
+<td style="text-align: right;">R$ 41,79</td>
+<td style="text-align: right;">R$ 40,84</td>
+</tr>
+<tr>
+<td>Moderado contra o preço</td>
+<td style="text-align: right;">+24%</td>
+<td style="text-align: right;">−31%</td>
+<td style="text-align: right;">−14%</td>
+</tr>
+<tr>
+<td>Margem EBITDA em 12 meses, sem baixas contábeis</td>
+<td style="text-align: right;">34,6%</td>
+<td style="text-align: right;">17,1%</td>
+<td style="text-align: right;">15,4%</td>
+</tr>
+<tr>
+<td>Dívida líquida ÷ EBITDA</td>
+<td style="text-align: right;">1,3</td>
+<td style="text-align: right;">5,1</td>
+<td style="text-align: right;">0,9</td>
+</tr>
+<tr>
+<td>Lucro líquido em 12 meses</td>
+<td style="text-align: right;">R$ 8,7 bi</td>
+<td style="text-align: right;">−R$ 2,0 bi</td>
+<td style="text-align: right;">R$ 2,3 bi</td>
+</tr>
+<tr>
+<td>Caixa que sobra depois de investir, em 12 meses</td>
+<td style="text-align: right;">R$ 18,8 bi</td>
+<td style="text-align: right;">−R$ 6,2 bi</td>
+<td style="text-align: right;">R$ 3,7 bi</td>
+</tr>
+</tbody>
+</table></div>
+<p>Das três, a Vale é a que se destaca. É a única em que o valor do cenário moderado fica acima
+do preço da bolsa, tem cerca do dobro da margem das outras duas e é a que menos perde no
+cenário pessimista. A Gerdau tem a menor dívida, mas a ação já custa mais do que o modelo
+calcula no cenário moderado. Na CSN, a dívida líquida é quase do tamanho do valor da operação
+inteira, e por isso o valor da ação vai de negativo a R$ 41,79 conforme o cenário.</p>
+    <p><a href="#analise">Ler a análise completa</a></p>
+  </section>
 
   <nav class="abas" id="abas" role="tablist" aria-label="Empresa"></nav>
 
@@ -258,6 +345,100 @@ a { color: var(--accent); }
         <div class="cartao" id="g-faixas"></div>
       </section>
 
+      <section class="bloco" id="analise">
+        <h2><span class="n">15</span>Análise: qual das três se destaca</h2>
+        <div class="cartao prosa"><h3>Como cheguei a esses valores</h3>
+<p>O valor por ação vem de um fluxo de caixa descontado. Projetei o caixa livre de cada empresa
+(FCFF) de 2026 a 2030, trouxe esses fluxos a valor de hoje pelo custo de capital (WACC), somei
+o valor dos anos seguintes e tirei a dívida. O que sobra é dividido pelo número de ações.</p>
+<p>Só três variáveis mudam de um cenário para outro: o crescimento da receita, a margem EBITDA de
+2030 e o WACC. Cada uma sai de uma regra fixa, igual para as três empresas. No moderado, por
+exemplo, a receita cresce pela inflação esperada e a margem de 2030 é a mediana de 2021 a 2025.
+Usei a mesma taxa de juros para as três, a do Tesouro prefixado de dez anos (12,91% ao ano),
+para comparar todas na mesma base.</p>
+<h3>Vale</h3>
+<p>Nos doze meses até junho de 2026 a Vale vendeu R$ 218 bilhões e ficou com 34,6% disso como
+EBITDA, sem contar as baixas contábeis. É cerca do dobro da margem da CSN e da Gerdau, mas bem
+abaixo dos 54,5% que a própria Vale teve em 2021.</p>
+<p>O lucro caiu mais do que a margem. Em 2025 a empresa registrou R$ 25,1 bilhões em perdas por
+recuperabilidade (impairment), uma baixa que reduz o lucro sem tirar dinheiro do caixa. O lucro
+do ano foi de R$ 11,8 bilhões, contra R$ 30,4 bilhões em 2024.</p>
+<p>A operação gerou R$ 50,6 bilhões de caixa em doze meses e os investimentos levaram R$ 31,8
+bilhões. Sobraram R$ 18,8 bilhões, menos do que os R$ 23,1 bilhões pagos em dividendos no
+período. A dívida líquida, que era de R$ 10,5 bilhões no fim de 2021, chegou a R$ 68,2 bilhões
+em junho de 2026. Isso equivale a 1,3 vez o EBITDA de um ano.</p>
+<p>No cenário moderado a receita cresce 3,8% ao ano, a margem volta a 39,4% até 2030 e o WACC é
+de 14,12%. O resultado é R$ 84,07 por ação, 24% acima do preço. Pelo fluxo de caixa do
+acionista (FCFE) a conta dá R$ 71,97, também acima. A tabela de sensibilidade refaz o cálculo
+para 25 combinações de WACC e de crescimento na perpetuidade, e o valor fica acima do preço em
+22 delas. Fica abaixo só quando o WACC sobe dois pontos e o crescimento na perpetuidade não
+passa de 3,5%.</p>
+<p>Pelos múltiplos o resultado é o oposto. Quando aplico à Vale a mediana do que o mercado paga
+pelas outras quatro empresas do grupo de comparação (CSN, Gerdau, Usiminas e CSN Mineração), o
+preço implícito fica entre R$ 37,52 e R$ 63,54, sempre abaixo da bolsa. Uma parte disso vem da
+baixa contábil: com ela a Vale negocia a 6,7 vezes o EBITDA, e sem ela a 4,6 vezes. O grupo
+também é pequeno, e duas das quatro empresas estão no prejuízo.</p>
+<h3>CSN</h3>
+<p>Na CSN a dívida decide o resultado. A dívida líquida é de R$ 39,1 bilhões: 5,1 vezes o EBITDA
+de um ano e 4,6 vezes o valor de mercado da empresa, que é de R$ 8,4 bilhões.</p>
+<p>A margem EBITDA caiu de 47,5% em 2021 para 17,1%. A empresa dá prejuízo desde 2024: R$ 1,5
+bilhão em 2024, R$ 1,5 bilhão em 2025 e R$ 2,0 bilhões nos últimos doze meses. Nesses doze
+meses a operação consumiu R$ 0,2 bilhão de caixa em vez de gerar, e os investimentos foram de
+R$ 6,0 bilhões.</p>
+<p>No cenário moderado a operação inteira vale R$ 39,2 bilhões, quase o mesmo que a dívida
+líquida. O que sobra para o acionista vem das participações em outras empresas, e o valor por
+ação fica em R$ 4,42, 31% abaixo do preço. No pessimista a dívida supera o valor da operação e
+a conta dá −R$ 8,04. No otimista dá R$ 41,79.</p>
+<p>Com tanta dívida, uma mudança pequena no valor da empresa vira uma mudança grande no valor da
+ação. Com um ponto a mais no WACC, o valor do cenário moderado cai para R$ 0,07.</p>
+<p>Pelo fluxo de caixa do acionista o resultado é pior. Os juros projetados, de R$ 6,8 bilhões por
+ano, são maiores do que o lucro operacional em todos os anos até 2030, e o valor por ação fica
+negativo (−R$ 7,68).</p>
+<p>O método ainda favorece a CSN em um ponto. Ela tem o menor WACC das três (9,98%) porque 86% do
+capital é dívida, e a dívida entra na conta a 8,5% ao ano depois do imposto, a mesma taxa das
+outras duas. É um efeito da fórmula. O risco da ação medido pelo beta é o maior das três: 1,48,
+contra 0,76 da Vale e 0,79 da Gerdau.</p>
+<h3>Gerdau</h3>
+<p>A Gerdau tem o balanço mais leve. A dívida líquida é de R$ 8,1 bilhões, 0,9 vez o EBITDA, e
+sobra caixa depois dos investimentos todos os anos desde 2020.</p>
+<p>O problema está na margem. O EBITDA sem baixas contábeis caiu de 30% da receita em 2021 para
+13,4% em 2025, e está em 15,4% nos últimos doze meses. O lucro de 2025 foi de R$ 1,4 bilhão,
+depois de uma baixa de R$ 2,0 bilhões.</p>
+<p>O cenário moderado supõe que a margem volte a 19,7% até 2030 e chega a R$ 21,38 por ação, 14%
+abaixo dos R$ 24,77 da bolsa. A ação está perto da máxima de 52 semanas (R$ 26,31). O preço de
+hoje só aparece no modelo com premissas entre o cenário moderado e o otimista.</p>
+<p>Os múltiplos ficam mais perto da bolsa: os preços implícitos vão de R$ 16,70 a R$ 28,56, e o
+preço de mercado está dentro dessa faixa.</p>
+<p>A Gerdau é também a menos ligada ao minério de ferro. Ele explica 14% da variação mensal da
+ação, contra 30% na CSN e 48% na Vale.</p>
+<h3>Por que a Vale se destaca</h3>
+<p>Destacar-se, aqui, quer dizer sair melhor nas contas deste modelo, com estas premissas. A Vale
+sai melhor por três motivos:</p>
+<ul>
+<li>É a única em que o cenário moderado fica acima do preço, tanto pelo fluxo de caixa da empresa
+  (R$ 84,07) quanto pelo do acionista (R$ 71,97).</li>
+<li>É a que menos perde quando as premissas pioram. No cenário pessimista o valor fica 25% abaixo
+  do preço. Na Gerdau fica 54% abaixo e na CSN fica negativo.</li>
+<li>Tem a maior margem das três e continua com lucro e com sobra de caixa depois de investir
+  R$ 31,8 bilhões em um ano.</li>
+</ul>
+<h3>O que pode mudar essa conclusão</h3>
+<ul>
+<li>Os múltiplos não confirmam o fluxo de caixa. Por eles a Vale não está barata.</li>
+<li>O resultado depende de a margem voltar de 34,6% para 39,4%. Se a margem ficar onde está, a
+  receita parar de crescer e o WACC subir 1,56 ponto, o valor cai para R$ 51,05.</li>
+<li>A Vale é a mais exposta ao minério de ferro, que explica 48% da variação mensal da ação. O
+  modelo não projeta o preço do minério. Ele entra só pela margem.</li>
+<li>Provisões, como as de barragens, não entram como dívida nas contas.</li>
+<li>Nas três empresas, mais de 70% do valor calculado vem do período depois de 2030, que é o mais
+  incerto.</li>
+</ul>
+<p>Isto não é recomendação de investimento. É uma análise feita com os dados que as próprias
+empresas divulgam e com simulações que juntam dados reais e dados projetados. O resultado muda
+quando as premissas mudam, e a página e a planilha estão abertas para quem quiser testar as
+suas.</p></div>
+      </section>
+
       <section class="bloco" id="premissas">
         <h2><span class="n">+</span>Premissas e de onde vieram</h2>
         <div class="cartao">
@@ -269,8 +450,8 @@ a { color: var(--accent); }
 
       <footer>
         <p id="fontes"></p>
-        <p>Estudo acadêmico e de portfólio de Bernardo Steffen Timm. Não é recomendação de compra ou venda de qualquer ativo.</p>
-        <p>O mesmo modelo existe em planilha (valuation_vale_csn_gerdau.xlsx), com todas as contas em fórmulas, a explicação de cada linha e a correlação das ações com o minério de ferro. Abre no Excel e no LibreOffice.</p>
+        <p>Estudo de Bernardo Steffen Timm. Isto não é recomendação de investimento. É uma análise feita com os dados que as próprias empresas divulgam e com simulações que juntam dados reais e dados projetados.</p>
+        <p>O mesmo modelo existe em planilha (valuation_vale_csn_gerdau.xlsx), com as contas em fórmulas, uma explicação ao lado de cada linha e a correlação das ações com o minério de ferro. Abre no Excel e no LibreOffice.</p>
         <p><a href="https://github.com/timmtimm1/valuation-vale-csn-gerdau/raw/main/saida/valuation_vale_csn_gerdau.xlsx">Baixar a planilha (.xlsx)</a> · <a href="https://github.com/timmtimm1/valuation-vale-csn-gerdau">código e dados no GitHub</a> · <a href="https://github.com/timmtimm1/valuation-vale-csn-gerdau/blob/main/FONTES.md">fonte de cada dado</a> · <a href="https://github.com/timmtimm1/valuation-vale-csn-gerdau/tree/main/analises">preços no dia da análise</a></p>
       </footer>
     </main>
@@ -687,9 +868,6 @@ function desenhar() {
   const n = emp.anos.length;
   const anosE = emp.anos.map((a) => a + "E");
   const nomeCenario = estado.cenario ? DADOS.nomes_cenarios[estado.cenario].toLowerCase() : "ajuste manual";
-
-  el("aviso").hidden = emp.status === "aprovada";
-  el("aviso").textContent = "Versão de trabalho: os cenários desta página saem de regras sobre o histórico da própria empresa e ainda não foram revisados pelo autor. Os preços abaixo são resultado dessas regras, não uma opinião.";
 
   // ---- destaque
   const negativo = v.equity < 0;
