@@ -96,7 +96,7 @@ def projetar(base: Base, p: dict[str, Any], anos: list[int]) -> pd.DataFrame:
         c["ebit"] = c["ebitda"] - c["da"]
         # Juros sobre os saldos do início do ano: evita referência circular.
         c["receita_financeira"] = a["caixa_total"] * p["rendimento_caixa"]
-        c["despesa_financeira"] = a["divida_bruta"] * p["custo_divida"]
+        c["despesa_financeira"] = a["divida_bruta"] * p["juros_divida"]
         c["resultado_financeiro"] = c["receita_financeira"] - c["despesa_financeira"]
         c["lair"] = c["ebit"] + c["resultado_financeiro"]
         # Equivalência já vem líquida de imposto da investida.

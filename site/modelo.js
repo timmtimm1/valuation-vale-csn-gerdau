@@ -25,7 +25,7 @@ const Modelo = (() => {
       c.da = a.ativo_fixo * p.depreciacao_pct[i];
       c.ebit = c.ebitda - c.da;
       c.receita_financeira = a.caixa_total * p.rendimento_caixa;
-      c.despesa_financeira = a.divida_bruta * p.custo_divida;
+      c.despesa_financeira = a.divida_bruta * p.juros_divida;
       c.resultado_financeiro = c.receita_financeira - c.despesa_financeira;
       c.lair = c.ebit + c.resultado_financeiro;
       c.ir = Math.max(0, c.lair - c.equivalencia) * tIr;
