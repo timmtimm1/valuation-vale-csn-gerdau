@@ -28,8 +28,6 @@ URL_FOCUS = (
     "ExpectativasMercadoAnuais"
 )
 URL_DAMODARAN = "https://pages.stern.nyu.edu/~adamodar/pc/datasets/ctryprem.xlsx"
-# Série 4389 do Banco Central: CDI ao ano, base 252 dias úteis.
-URL_CDI = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.4389/dados/ultimos/5?formato=json"
 
 
 def _baixar(url: str, nome: str, atualizar: bool) -> Path:
@@ -106,23 +104,6 @@ def _focus(atualizar: bool) -> list[dict[str, object]]:
     ]
 
 
-def _cdi(atualizar: bool) -> list[dict[str, object]]:
-    """CDI de hoje, ao ano: é o indexador da dívida em reais das empresas."""
-    serie = json.loads(_baixar(URL_CDI, "sgs_cdi.json", atualizar).read_text("utf-8"))
-    # A API devolve do mais recente para o mais antigo: vale o de data mais alta.
-    ultimo = max(serie, key=lambda v: v["data"].split("/")[::-1])
-    dia, mes, ano = ultimo["data"].split("/")
-    return [
-        {
-            "indicador": "cdi",
-            "valor": float(ultimo["valor"]) / 100,
-            "data": f"{ano}-{mes}-{dia}",
-            "detalhe": "CDI ao ano, base 252 dias úteis",
-            "fonte": URL_CDI.split("?")[0],
-        }
-    ]
-
-
 def _damodaran(atualizar: bool) -> list[dict[str, object]]:
     caminho = _baixar(URL_DAMODARAN, "ctryprem.xlsx", atualizar)
     livro = openpyxl.load_workbook(io.BytesIO(caminho.read_bytes()), data_only=True)
@@ -156,9 +137,7 @@ def _damodaran(atualizar: bool) -> list[dict[str, object]]:
 
 
 def extrair(atualizar: bool = False) -> pd.DataFrame:
-    macro = pd.DataFrame(
-        [*_tesouro(atualizar), *_focus(atualizar), *_cdi(atualizar), *_damodaran(atualizar)]
-    )
+    macro = pd.DataFrame([*_tesouro(atualizar), *_focus(atualizar), *_damodaran(atualizar)])
     macro = macro[["indicador", "valor", "data", "detalhe", "fonte"]]
     macro.to_csv(MACRO_CSV, index=False, float_format="%.6f")
     return macro
