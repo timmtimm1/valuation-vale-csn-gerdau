@@ -16,7 +16,7 @@ premissas:
     valores: [-0.0042, 0.043, 0.038, 0.0351, 0.035]
     origem: '2026: custo caixa dos últimos 12 meses sobre 2025. 2027 em diante: IPCA esperado no Focus.'
   outras_pct:
-    valores: [-0.0767, -0.0692, -0.0616, -0.0541, -0.0465]
+    valores: [-0.0767, -0.0691, -0.0616, -0.0541, -0.0465]
     origem: Do nível dos últimos 12 meses até a mediana de 2021-2025.
   equivalencia:
     valores: [351.131, 351.131, 351.131, 351.131, 351.131]

@@ -223,7 +223,7 @@ def construir() -> pd.DataFrame:
         t.insert(0, "ticker", ticker)
         tabelas.append(t.reset_index(drop=True))
     historico = pd.concat(tabelas, ignore_index=True)
-    historico.to_csv(HISTORICO_CSV, index=False, float_format="%.4f")
+    historico.to_csv(HISTORICO_CSV, index=False, float_format="%.6f")
     return historico
 
 

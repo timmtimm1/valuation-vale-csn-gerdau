@@ -16,7 +16,7 @@ premissas:
     valores: [-0.0253, 0.043, 0.038, 0.0351, 0.035]
     origem: '2026: custo caixa dos últimos 12 meses sobre 2025. 2027 em diante: IPCA esperado no Focus.'
   outras_pct:
-    valores: [-0.0319, -0.0238, -0.0158, -0.0077, 0.0004]
+    valores: [-0.0319, -0.0238, -0.0157, -0.0076, 0.0004]
     origem: Do nível dos últimos 12 meses até a mediana de 2021-2025.
   equivalencia:
     valores: [563.158, 563.158, 563.158, 563.158, 563.158]
@@ -41,7 +41,7 @@ premissas:
     origem: Prazo de 2025, mantido.
   aliquota_ir: {valor: 0.34, origem: 'Alíquota nominal: IRPJ 25% + CSLL 9%.'}
   custo_divida: {valor: 0.1291, origem: 'Piso: a taxa do Tesouro prefixado de dez anos, sem spread de
-      crédito. Custo implícito mediano 2023-2025: 19.2%.'}
+      crédito. Custo implícito mediano 2023-2025: 19.3%.'}
   rendimento_caixa: {valor: 0.1235, origem: Mediana 2023-2025 da receita financeira sobre o caixa médio.}
   payout: {valor: 0.3602, origem: 'Mediana 2021-2025 de dividendos pagos sobre lucro, limitada a 0-100%.'}
   juro_sem_risco: {valor: 0.1291, origem: 'Tesouro prefixado de dez anos (em reais, nominal).'}
