@@ -1,6 +1,8 @@
 indicador,valor,data,detalhe,fonte
 juro_prefixado_longo,0.129100,2026-10-08,Tesouro Prefixado com Juros Semestrais 2037,https://www.tesourotransparente.gov.br/ckan/dataset/df56aa42-484a-4a59-8184-7676580c81e3/resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/PrecoTaxaTesouroDireto.csv
 juro_real_longo,0.068500,2026-10-08,Tesouro IPCA+ com Juros Semestrais 2037,https://www.tesourotransparente.gov.br/ckan/dataset/df56aa42-484a-4a59-8184-7676580c81e3/resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/PrecoTaxaTesouroDireto.csv
+juro_prefixado_minimo,0.121500,2026-10-08,Mínimo do prefixado mais longo nos últimos dois anos,https://www.tesourotransparente.gov.br/ckan/dataset/df56aa42-484a-4a59-8184-7676580c81e3/resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/PrecoTaxaTesouroDireto.csv
+juro_prefixado_maximo,0.152800,2026-10-08,Máximo do prefixado mais longo nos últimos dois anos,https://www.tesourotransparente.gov.br/ckan/dataset/df56aa42-484a-4a59-8184-7676580c81e3/resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/PrecoTaxaTesouroDireto.csv
 ipca_2026,0.050129,2026-10-02,"Focus, mediana de 144 instituições",https://olinda.bcb.gov.br/olinda/servico/Expectativas/versao/v1/odata/ExpectativasMercadoAnuais
 ipca_2027,0.043007,2026-10-02,"Focus, mediana de 144 instituições",https://olinda.bcb.gov.br/olinda/servico/Expectativas/versao/v1/odata/ExpectativasMercadoAnuais
 ipca_2028,0.038007,2026-10-02,"Focus, mediana de 118 instituições",https://olinda.bcb.gov.br/olinda/servico/Expectativas/versao/v1/odata/ExpectativasMercadoAnuais
