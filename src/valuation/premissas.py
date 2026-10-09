@@ -146,7 +146,8 @@ def propor(ticker: str) -> dict[str, Any]:
         "premio_adicional": escalar(0.0, "Sem prêmio adicional."),
         "peso_divida": escalar(
             divida / (divida + mercado["valor_de_mercado"]),
-            f"Dívida bruta do {ltm_rotulo.removeprefix('LTM ')} sobre dívida mais valor de mercado.",
+            f"Dívida bruta do {ltm_rotulo.removeprefix('LTM ')} sobre dívida mais valor de"
+            " mercado.",
         ),
         "crescimento_perpetuo": escalar(
             ipca[-1], f"IPCA esperado para {ANOS[-1]}: crescimento real zero."
