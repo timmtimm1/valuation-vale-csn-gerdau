@@ -67,7 +67,16 @@ da oscilação da Vale, 30% da CSN e 14% da Gerdau.
 - **Tesouro Direto**: juro sem risco. **Focus**: inflação esperada.
   **Damodaran (NYU)**: prêmio de risco de mercado.
 
-Cada número de mercado fica em `dados/macro.csv` com data e link.
+Cada número de mercado fica em `dados/macro.csv` com data e link. A lista completa, com o
+link de cada fonte e a data do dado mais recente, está em [FONTES.md](FONTES.md).
+
+## Quando a análise foi feita
+
+A pasta [`analises/`](analises/) guarda uma fotografia de cada data: o preço das ações no
+último pregão, os juros, a inflação esperada, o minério e o resultado do modelo com as
+premissas daquele dia. A primeira é a de [09/10/2026](analises/2026-10-09.md), com o
+fechamento de 08/10/2026. Cada fotografia tem uma tag no git (`analise-2026-10-09`), para
+quem quiser ver o código e os dados exatamente como estavam.
 
 ## Como rodar
 
@@ -78,6 +87,7 @@ uv run valuation propor      # gera premissas/<ticker>.yaml por regra
 uv run valuation gerar       # a planilha em saida/, já calculada pelo LibreOffice
 uv run valuation pagina      # site/index.html
 uv run valuation verificar   # LibreOffice recalcula e compara com o Python
+uv run valuation registrar   # FONTES.md e a fotografia do dia em analises/
 uv run pytest
 ```
 
