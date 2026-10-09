@@ -51,3 +51,11 @@ def verificar(ticker: str = typer.Argument(None)) -> None:
         falhou = falhou or bool(problemas)
     if falhou:
         raise typer.Exit(1)
+
+
+@app.command()
+def pagina() -> None:
+    """Monta site/index.html com o modelo e os dados embutidos."""
+    from valuation import site
+
+    typer.echo(site.construir())

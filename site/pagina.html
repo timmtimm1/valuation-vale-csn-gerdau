@@ -1,0 +1,505 @@
+<title>Valuation Vale, CSN e Gerdau</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: painel de premissas fixo à esquerda, resultado à direita; uma coluna no celular. */
+:root {
+  --bg: #eef1f4;          /* cinza-aço claro */
+  --surface: #ffffff;
+  --ink: #141c26;
+  --ink-2: #4a5665;
+  --ink-3: #7a8594;
+  --line: #d5dbe2;
+  --accent: #2a78d6;      /* projeção, valores do modelo */
+  --accent-soft: #dbe8f8;
+  --ore: #b4532a;         /* preço de mercado, cor de minério */
+  --ore-soft: #f6e3d8;
+  --hist: #9aa5b3;        /* realizado */
+  --bad: #c0392b;
+  --warn-bg: #fff4d6;
+  --warn-ink: #6b4e00;
+  --display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161c; --surface: #1a212a; --ink: #f1f4f7; --ink-2: #b9c2cd; --ink-3: #8894a3;
+    --line: #2e3844; --accent: #3987e5; --accent-soft: #1c3352; --ore: #e08a5c; --ore-soft: #45291b;
+    --hist: #6b7786; --bad: #e66767; --warn-bg: #3a3015; --warn-ink: #f0d58a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161c; --surface: #1a212a; --ink: #f1f4f7; --ink-2: #b9c2cd; --ink-3: #8894a3;
+  --line: #2e3844; --accent: #3987e5; --accent-soft: #1c3352; --ore: #e08a5c; --ore-soft: #45291b;
+  --hist: #6b7786; --bad: #e66767; --warn-bg: #3a3015; --warn-ink: #f0d58a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 56px; display: grid; gap: 24px; }
+h1 { font-family: var(--display); font-stretch: 80%; font-weight: 800; font-size: clamp(1.9rem, 4.5vw, 2.9rem); line-height: 1.02; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font-family: var(--display); font-stretch: 88%; font-weight: 700; font-size: 1.15rem; margin: 0; text-wrap: balance; }
+p { margin: 0; }
+.lede { color: var(--ink-2); max-width: 68ch; margin-top: 10px; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.eyebrow { font-size: 0.72rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+.aviso { background: var(--warn-bg); color: var(--warn-ink); padding: 10px 14px; border-radius: 6px; font-size: 0.88rem; max-width: 90ch; }
+
+.abas { display: flex; flex-wrap: wrap; gap: 8px; }
+.abas button { font: inherit; font-family: var(--display); font-stretch: 85%; font-weight: 700; font-size: 1.05rem; padding: 9px 18px; border: 1.5px solid var(--line); background: transparent; color: var(--ink-2); border-radius: 4px; cursor: pointer; }
+.abas button small { font-family: var(--body); font-weight: 400; font-size: 0.78rem; margin-left: 6px; color: var(--ink-3); }
+.abas button[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.abas button[aria-selected="true"] small { color: inherit; opacity: 0.7; }
+button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.grade { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 24px; align-items: start; }
+.painel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px; display: grid; gap: 16px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); max-height: calc(100vh - 24px); overflow-y: auto; }
+.resultado { display: grid; gap: 24px; min-width: 0; }
+@media (max-width: 900px) { .grade { grid-template-columns: minmax(0, 1fr); } .painel { position: static; max-height: none; } }
+
+.cenarios { display: flex; gap: 6px; }
+.cenarios button, .limpar { font: inherit; font-size: 0.85rem; padding: 6px 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 4px; cursor: pointer; flex: 1; }
+.cenarios button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.grupo { display: grid; gap: 12px; }
+.controle { display: grid; gap: 2px; }
+.controle label { display: flex; justify-content: space-between; gap: 8px; font-size: 0.86rem; color: var(--ink-2); }
+.controle output { color: var(--ink); font-family: var(--mono); font-size: 0.84rem; white-space: nowrap; }
+.controle input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
+
+.destaque { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.destaque > div { padding: 16px 18px; border-right: 1px solid var(--line); display: grid; gap: 2px; align-content: start; }
+.destaque > div:last-child { border-right: 0; }
+.destaque .valor { white-space: nowrap; font-family: var(--display); font-stretch: 80%; font-weight: 700; font-size: 1.75rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.destaque .principal .valor { font-size: 2.1rem; color: var(--accent); }
+.destaque .sub { font-size: 0.8rem; color: var(--ink-3); }
+.neg { color: var(--bad); }
+
+.bloco { display: grid; gap: 12px; min-width: 0; }
+.bloco > p { color: var(--ink-2); font-size: 0.9rem; max-width: 75ch; }
+.cartao { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; min-width: 0; }
+.duas { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.rolagem { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
+th, td { padding: 6px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+th:first-child, td:first-child { text-align: left; white-space: normal; min-width: 150px; }
+thead th { font-weight: 600; color: var(--ink-2); font-size: 0.78rem; }
+td.num, th.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+tr.forte td { font-weight: 600; }
+tr.sep td { border-top: 2px solid var(--line); }
+.proj { background: var(--accent-soft); }
+
+svg { display: block; width: 100%; height: auto; }
+svg text { font-family: var(--body); font-size: 11px; fill: var(--ink-2); }
+svg .eixo { stroke: var(--line); stroke-width: 1; }
+svg .valor-rotulo { fill: var(--ink); font-family: var(--mono); font-size: 10.5px; }
+.legenda { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.8rem; color: var(--ink-2); margin-top: 8px; }
+.legenda i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+
+.ponte { display: grid; gap: 6px; }
+.ponte .linha { display: grid; grid-template-columns: minmax(120px, 1.3fr) 2fr auto; gap: 10px; align-items: center; font-size: 0.88rem; }
+.ponte .barra { height: 14px; border-radius: 3px; background: var(--accent); min-width: 2px; }
+.ponte .menos .barra { background: var(--ore); }
+.ponte .total { font-weight: 600; border-top: 1px solid var(--line); padding-top: 6px; }
+.ponte .total .barra { background: var(--ink); }
+
+.sens td { text-align: center; font-family: var(--mono); }
+.sens td.acima { background: var(--accent-soft); }
+.sens td.abaixo { background: var(--ore-soft); }
+.sens td.centro { outline: 2px solid var(--ink); outline-offset: -2px; font-weight: 600; }
+.sens th { text-align: center; }
+
+details { border-top: 1px solid var(--line); padding-block: 10px; }
+summary { cursor: pointer; font-weight: 600; }
+.origem { color: var(--ink-3); font-size: 0.8rem; white-space: normal; text-align: left; min-width: 220px; }
+#dica { position: fixed; pointer-events: none; background: var(--ink); color: var(--bg); padding: 5px 9px; border-radius: 4px; font-size: 0.8rem; z-index: 10; max-width: 240px; }
+footer { color: var(--ink-3); font-size: 0.82rem; display: grid; gap: 6px; max-width: 90ch; }
+a { color: var(--accent); }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Mineração e siderurgia · B3 · R$ milhões</p>
+    <h1>Quanto valem Vale, CSN e Gerdau?</h1>
+    <p class="lede">Um modelo de fluxo de caixa descontado montado só com dados públicos da CVM e da B3. Mexa nas premissas à esquerda e veja o preço por ação mudar na hora.</p>
+  </header>
+
+  <p class="aviso" id="aviso"></p>
+
+  <nav class="abas" id="abas" role="tablist" aria-label="Empresa"></nav>
+
+  <div class="grade">
+    <aside class="painel" aria-label="Premissas">
+      <div class="grupo">
+        <span class="eyebrow">Cenário</span>
+        <div class="cenarios" id="cenarios"></div>
+      </div>
+      <div class="grupo" id="controles-operacao"><span class="eyebrow">Operação</span></div>
+      <div class="grupo" id="controles-capital"><span class="eyebrow">Custo de capital</span></div>
+      <button class="limpar" id="limpar" type="button">Voltar às premissas originais</button>
+    </aside>
+
+    <main class="resultado">
+      <section class="destaque" id="destaque" aria-live="polite"></section>
+
+      <section class="bloco">
+        <h2>Do valor da empresa ao preço por ação</h2>
+        <p>O valor da empresa (EV) é a soma dos fluxos de caixa futuros trazidos a valor de hoje. Tirando a dívida e a parte dos sócios minoritários, sobra o valor do acionista.</p>
+        <div class="cartao ponte" id="ponte"></div>
+      </section>
+
+      <section class="bloco">
+        <h2>Projeção</h2>
+        <div class="duas">
+          <div class="cartao"><span class="eyebrow">Receita líquida (R$ bilhões)</span><div id="g-receita"></div></div>
+          <div class="cartao"><span class="eyebrow">Margem EBITDA</span><div id="g-margem"></div></div>
+          <div class="cartao"><span class="eyebrow">Fluxo de caixa livre da empresa, FCFF (R$ bilhões)</span><div id="g-fcff"></div></div>
+          <div class="cartao"><span class="eyebrow">Dívida líquida / EBITDA</span><div id="g-alav"></div></div>
+        </div>
+        <div class="legenda"><span><i style="background:var(--hist)"></i>Realizado (CVM)</span><span><i style="background:var(--accent)"></i>Projetado</span></div>
+        <div class="cartao rolagem" id="t-projecao"></div>
+      </section>
+
+      <section class="bloco">
+        <h2>Sensibilidade: WACC e crescimento perpétuo</h2>
+        <p>Preço por ação para cada combinação de taxa de desconto (linhas) e crescimento na perpetuidade (colunas). Azul: acima do preço de mercado. Laranja: abaixo.</p>
+        <div class="cartao rolagem" id="t-sens"></div>
+      </section>
+
+      <section class="bloco">
+        <h2>Faixas de valor por ação</h2>
+        <p>O mesmo papel visto por métodos diferentes. A linha vertical é o preço de mercado.</p>
+        <div class="cartao" id="g-faixas"></div>
+      </section>
+
+      <section class="bloco">
+        <h2>Múltiplos das comparáveis</h2>
+        <p>Últimos doze meses. A mediana das outras quatro empresas, aplicada aos números desta, dá um preço implícito.</p>
+        <div class="cartao rolagem" id="t-multiplos"></div>
+      </section>
+
+      <section class="bloco">
+        <h2>Histórico</h2>
+        <div class="cartao rolagem" id="t-historico"></div>
+      </section>
+
+      <section class="bloco">
+        <h2>Premissas e de onde vieram</h2>
+        <div class="cartao">
+          <details open><summary>Por ano</summary><div class="rolagem" id="t-prem-ano"></div></details>
+          <details><summary>Gerais</summary><div class="rolagem" id="t-prem-geral"></div></details>
+          <details><summary>Como o modelo funciona</summary>
+            <div style="display:grid;gap:8px;margin-top:8px;color:var(--ink-2);font-size:0.9rem;max-width:75ch">
+              <p>A receita cresce com volume e preço. O custo acompanha volume e inflação de custos, não o preço de venda: quando o minério ou o aço caem, a margem aperta.</p>
+              <p>FCFF = NOPAT + depreciação − capex − investimento em capital de giro. NOPAT é o EBIT sem equivalência patrimonial, depois do imposto.</p>
+              <p>Custo do capital próprio pelo CAPM: Ke = juro sem risco + beta × prêmio de mercado. WACC = média de Ke e do custo da dívida após imposto, pelos pesos de cada um.</p>
+              <p>O primeiro ano conta só pela parte que falta depois da data-base. Depois do último ano, o fluxo cresce para sempre à taxa g (Gordon), com capex igual a um múltiplo da depreciação.</p>
+              <p>Valor do acionista = EV − dívida líquida − minoritários + investimentos em coligadas (valor de balanço).</p>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <footer>
+        <p id="fontes"></p>
+        <p>Estudo acadêmico e de portfólio de Bernardo Steffen Timm. Não é recomendação de compra ou venda de qualquer ativo.</p>
+        <p>O mesmo modelo existe em planilha, com todas as contas em fórmulas do Excel: uma por empresa (valuation_VALE3.xlsx, valuation_CSNA3.xlsx, valuation_GGBR4.xlsx).</p>
+      </footer>
+    </main>
+  </div>
+</div>
+<div id="dica" hidden></div>
+
+<script>
+/*__MODELO__*/
+</script>
+<script>
+const DADOS = /*__DADOS__*/;
+
+// ------------------------------------------------------------------ formatação
+const nf = (casas) => new Intl.NumberFormat("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });
+const mi = (v) => nf(0).format(v);
+const bi = (v) => "R$ " + nf(1).format(v / 1000) + " bi";
+const pct = (v, casas = 1) => nf(casas).format(v * 100) + "%";
+const reais = (v) => "R$ " + nf(2).format(v);
+const vezes = (v) => nf(2).format(v) + "x";
+const pp = (v) => (v > 0 ? "+" : "") + nf(1).format(v * 100) + " p.p.";
+const el = (id) => document.getElementById(id);
+
+// ------------------------------------------------------------------ estado
+// Os controles guardam ajustes sobre as premissas do arquivo, não valores absolutos:
+// trocar de empresa mantém o mesmo choque aplicado.
+const CONTROLES = [
+  { id: "preco", grupo: "operacao", rotulo: "Preço de venda em 2027", min: -0.25, max: 0.25, passo: 0.01, fmt: pp, tipo: "delta" },
+  { id: "volume", grupo: "operacao", rotulo: "Volume, ao ano", min: -0.03, max: 0.06, passo: 0.005, fmt: pp, tipo: "delta" },
+  { id: "custos", grupo: "operacao", rotulo: "Inflação de custos, ao ano", min: -0.03, max: 0.03, passo: 0.005, fmt: pp, tipo: "delta" },
+  { id: "capex", grupo: "operacao", rotulo: "Capex sobre a receita", min: -0.05, max: 0.05, passo: 0.005, fmt: pp, tipo: "delta" },
+  { id: "juro_sem_risco", grupo: "capital", rotulo: "Juro sem risco", min: 0.06, max: 0.18, passo: 0.0025, fmt: (v) => pct(v, 2), tipo: "valor" },
+  { id: "beta", grupo: "capital", rotulo: "Beta", min: 0.4, max: 2.2, passo: 0.05, fmt: (v) => nf(2).format(v), tipo: "valor" },
+  { id: "premio_mercado", grupo: "capital", rotulo: "Prêmio de risco de mercado", min: 0.03, max: 0.1, passo: 0.0025, fmt: (v) => pct(v, 2), tipo: "valor" },
+  { id: "custo_divida", grupo: "capital", rotulo: "Custo da dívida", min: 0.06, max: 0.22, passo: 0.0025, fmt: (v) => pct(v, 2), tipo: "valor" },
+  { id: "peso_divida", grupo: "capital", rotulo: "Peso da dívida", min: 0, max: 0.9, passo: 0.01, fmt: (v) => pct(v, 0), tipo: "valor" },
+  { id: "crescimento_perpetuo", grupo: "capital", rotulo: "Crescimento perpétuo (g)", min: 0, max: 0.06, passo: 0.0025, fmt: (v) => pct(v, 2), tipo: "valor" },
+  { id: "capex_perpetuidade", grupo: "capital", rotulo: "Capex perpétuo / depreciação", min: 0.8, max: 1.6, passo: 0.05, fmt: vezes, tipo: "valor" },
+];
+const estado = { ticker: Object.keys(DADOS.empresas)[0], ajustes: {}, cenario: "base" };
+
+function premissasEmUso(emp, ajustes) {
+  const p = structuredClone(emp.premissas);
+  const a = (id) => ajustes[id] ?? 0;
+  p.variacao_preco[1] += a("preco");
+  p.crescimento_volume = p.crescimento_volume.map((v) => v + a("volume"));
+  p.inflacao_custos = p.inflacao_custos.map((v) => v + a("custos"));
+  p.capex_pct = p.capex_pct.map((v) => v + a("capex"));
+  for (const c of CONTROLES) if (c.tipo === "valor" && ajustes[c.id] != null) p[c.id] = ajustes[c.id];
+  return p;
+}
+
+function rodar(emp, ajustes) {
+  const p = premissasEmUso(emp, ajustes);
+  const proj = Modelo.projetar(emp.base, p, emp.anos);
+  return { p, proj, v: Modelo.avaliar(emp.base, proj, p), s: Modelo.sensibilidade(emp.base, proj, p) };
+}
+
+// ------------------------------------------------------------------ controles
+function montarControles() {
+  for (const c of CONTROLES) {
+    const div = document.createElement("div");
+    div.className = "controle";
+    div.innerHTML = `<label for="c-${c.id}"><span>${c.rotulo}</span><output id="o-${c.id}"></output></label>
+      <input type="range" id="c-${c.id}" min="${c.min}" max="${c.max}" step="${c.passo}">`;
+    el("controles-" + c.grupo).append(div);
+    div.querySelector("input").addEventListener("input", (e) => {
+      estado.ajustes[c.id] = Number(e.target.value);
+      if (c.id === "preco") estado.cenario = null;
+      desenhar();
+    });
+  }
+  for (const [id, nome] of [["pessimista", "Pessimista"], ["base", "Base"], ["otimista", "Otimista"]]) {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = nome; b.dataset.cenario = id;
+    b.addEventListener("click", () => {
+      const emp = DADOS.empresas[estado.ticker];
+      estado.cenario = id;
+      estado.ajustes.preco = id === "base" ? 0 : emp.cenarios[id].variacao_preco[1];
+      desenhar();
+    });
+    el("cenarios").append(b);
+  }
+  el("limpar").addEventListener("click", () => { estado.ajustes = {}; estado.cenario = "base"; desenhar(); });
+  for (const emp of Object.values(DADOS.empresas)) {
+    const b = document.createElement("button");
+    b.type = "button"; b.setAttribute("role", "tab"); b.dataset.ticker = emp.ticker;
+    b.innerHTML = `${emp.nome}<small>${emp.ticker}</small>`;
+    b.addEventListener("click", () => {
+      // Os ajustes de custo de capital são da empresa; os choques de operação seguem.
+      for (const c of CONTROLES) if (c.tipo === "valor") delete estado.ajustes[c.id];
+      estado.ticker = emp.ticker; desenhar();
+    });
+    el("abas").append(b);
+  }
+}
+
+function sincronizarControles(emp, p) {
+  for (const c of CONTROLES) {
+    const valor = c.tipo === "delta" ? estado.ajustes[c.id] ?? 0 : p[c.id];
+    el("c-" + c.id).value = valor;
+    el("o-" + c.id).textContent = c.fmt(valor);
+  }
+  for (const b of el("cenarios").children) b.setAttribute("aria-pressed", b.dataset.cenario === estado.cenario);
+  for (const b of el("abas").children) b.setAttribute("aria-selected", b.dataset.ticker === emp.ticker);
+}
+
+// ------------------------------------------------------------------ gráficos (SVG)
+const dica = el("dica");
+function comDica(alvo) {
+  alvo.addEventListener("pointermove", (e) => {
+    const t = e.target.closest("[data-dica]");
+    if (!t) { dica.hidden = true; return; }
+    dica.textContent = t.dataset.dica; dica.hidden = false;
+    dica.style.left = Math.min(e.clientX + 12, innerWidth - 250) + "px";
+    dica.style.top = e.clientY + 14 + "px";
+  });
+  alvo.addEventListener("pointerleave", () => { dica.hidden = true; });
+}
+
+// Barras ou linha numa escala só; `corte` é o índice onde começa a projeção.
+function grafico(id, rotulos, valores, corte, fmt, tipo = "barras") {
+  const W = 420, H = 190, m = { e: 8, d: 8, t: 16, b: 22 };
+  const finitos = valores.filter(Number.isFinite);
+  const max = Math.max(0, ...finitos), min = Math.min(0, ...finitos);
+  const y = (v) => m.t + ((max - v) / (max - min || 1)) * (H - m.t - m.b);
+  const passo = (W - m.e - m.d) / valores.length;
+  const cor = (i) => (i >= corte ? "var(--accent)" : "var(--hist)");
+  let s = `<line class="eixo" x1="${m.e}" x2="${W - m.d}" y1="${y(0)}" y2="${y(0)}"/>`;
+  const pontos = [];
+  valores.forEach((v, i) => {
+    const cx = m.e + passo * (i + 0.5);
+    const rotuloCurto = String(rotulos[i]).replace("LTM ", "").replace(/^20/, "");
+    s += `<text x="${cx}" y="${H - 6}" text-anchor="middle">${rotuloCurto}</text>`;
+    if (!Number.isFinite(v)) return;
+    const d = `${rotulos[i]}: ${fmt(v)}`;
+    if (tipo === "barras") {
+      const topo = Math.min(y(v), y(0)), alt = Math.max(Math.abs(y(v) - y(0)), 1);
+      s += `<rect x="${cx - passo * 0.34}" y="${topo}" width="${passo * 0.68}" height="${alt}" rx="2" fill="${cor(i)}" data-dica="${d}"/>`;
+    } else {
+      pontos.push([cx, y(v), i, d]);
+    }
+  });
+  if (tipo === "linha") {
+    for (let i = 1; i < pontos.length; i++) {
+      const [x1, y1] = pontos[i - 1], [x2, y2, idx] = pontos[i];
+      s += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${cor(idx)}" stroke-width="2"/>`;
+    }
+    for (const [cx, cy, idx, d] of pontos) {
+      s += `<circle cx="${cx}" cy="${cy}" r="4" fill="${cor(idx)}" stroke="var(--surface)" stroke-width="2"/>
+            <circle cx="${cx}" cy="${cy}" r="12" fill="transparent" data-dica="${d}"/>`;
+    }
+  }
+  // Rótulo direto só no último realizado e no último projetado.
+  for (const i of [corte - 1, valores.length - 1]) {
+    if (i < 0 || !Number.isFinite(valores[i])) continue;
+    const cx = m.e + passo * (i + 0.5);
+    const acima = valores[i] >= 0;
+    s += `<text class="valor-rotulo" x="${cx}" y="${y(valores[i]) + (acima ? -5 : 13)}" text-anchor="middle">${fmt(valores[i])}</text>`;
+  }
+  el(id).innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img">${s}</svg>`;
+}
+
+function faixas(id, linhas, mercado) {
+  const W = 760, alt = 34, m = { e: 190, d: 60, t: 8, b: 26 };
+  const H = m.t + alt * linhas.length + m.b;
+  const todos = linhas.flatMap((l) => [l.min, l.max]).concat(mercado).filter(Number.isFinite);
+  const max = Math.max(...todos) * 1.08, min = Math.min(0, ...todos);
+  const x = (v) => m.e + ((Math.max(v, min) - min) / (max - min)) * (W - m.e - m.d);
+  let s = "";
+  for (let i = 0; i <= 4; i++) {
+    const v = min + ((max - min) * i) / 4;
+    s += `<line class="eixo" x1="${x(v)}" x2="${x(v)}" y1="${m.t}" y2="${H - m.b}"/>
+          <text x="${x(v)}" y="${H - 8}" text-anchor="middle">${nf(0).format(v)}</text>`;
+  }
+  linhas.forEach((l, i) => {
+    const cy = m.t + alt * (i + 0.5);
+    s += `<text x="${m.e - 10}" y="${cy + 4}" text-anchor="end">${l.rotulo}</text>`;
+    if (!Number.isFinite(l.min)) { s += `<text x="${m.e + 6}" y="${cy + 4}">não se aplica</text>`; return; }
+    const largura = Math.max(x(l.max) - x(l.min), 3);
+    s += `<rect x="${x(l.min)}" y="${cy - 7}" width="${largura}" height="14" rx="3" fill="${l.cor}" data-dica="${l.rotulo}: ${reais(l.min)} a ${reais(l.max)}"/>`;
+    if (Number.isFinite(l.ponto)) s += `<rect x="${x(l.ponto) - 1.5}" y="${cy - 11}" width="3" height="22" fill="var(--ink)" data-dica="${l.rotulo}, base: ${reais(l.ponto)}"/>`;
+    s += `<text class="valor-rotulo" x="${x(l.max) + 6}" y="${cy + 4}">${nf(0).format(l.min)}–${nf(0).format(l.max)}</text>`;
+  });
+  s += `<line x1="${x(mercado)}" x2="${x(mercado)}" y1="${m.t - 4}" y2="${H - m.b}" stroke="var(--ore)" stroke-width="2" stroke-dasharray="5 3"/>`;
+  el(id).innerHTML = `<div class="rolagem"><svg viewBox="0 0 ${W} ${H}" role="img" style="min-width:520px">${s}</svg></div>
+    <div class="legenda"><span><i style="background:var(--ore)"></i>Preço de mercado: ${reais(mercado)}</span><span><i style="background:var(--ink)"></i>Cenário base</span></div>`;
+}
+
+// ------------------------------------------------------------------ tabelas
+function tabela(id, cabecalho, linhas, classes = "") {
+  const th = cabecalho.map((c) => `<th${c.cls ? ` class="${c.cls}"` : ""}>${c.t ?? c}</th>`).join("");
+  const tr = linhas.map((l) => `<tr class="${l.cls ?? ""}">${l.c.map((v, i) => `<td class="${i ? "num" : ""} ${l.td?.[i] ?? ""}">${v}</td>`).join("")}</tr>`).join("");
+  el(id).innerHTML = `<table class="${classes}"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
+}
+
+// ------------------------------------------------------------------ desenho
+function desenhar() {
+  const emp = DADOS.empresas[estado.ticker];
+  const { p, proj, v, s } = rodar(emp, estado.ajustes);
+  sincronizarControles(emp, p);
+  const h = emp.historico;
+  const anosE = emp.anos.map((a) => a + "E");
+
+  el("aviso").hidden = emp.status === "aprovada";
+  el("aviso").textContent = "Versão de trabalho: as premissas desta página são uma proposta automática por regra (histórico, Focus, Tesouro) e ainda não foram revisadas pelo autor. Os preços abaixo são resultado dessas regras, não uma opinião.";
+
+  const negativo = v.equity < 0;
+  el("destaque").innerHTML = `
+    <div class="principal"><span class="eyebrow">Preço justo (DCF)</span><span class="valor ${negativo ? "neg" : ""}">${reais(v.preco_justo)}</span>
+      <span class="sub">${negativo ? "valor do acionista negativo: a dívida supera o valor da empresa" : "por ação " + emp.ticker}</span></div>
+    <div><span class="eyebrow">Preço de mercado</span><span class="valor">${reais(v.preco_mercado)}</span><span class="sub">B3, ${emp.mercado.data_preco.split("-").reverse().join("/")}</span></div>
+    <div><span class="eyebrow">Diferença</span><span class="valor ${v.potencial < 0 ? "neg" : ""}">${(v.potencial > 0 ? "+" : "") + pct(v.potencial, 0)}</span><span class="sub">modelo sobre mercado</span></div>
+    <div><span class="eyebrow">WACC</span><span class="valor">${pct(v.wacc, 1)}</span><span class="sub">Ke ${pct(v.ke, 1)} · Kd líq. ${pct(v.kd_liquido, 1)}</span></div>
+    <div><span class="eyebrow">Valor da empresa</span><span class="valor">${bi(v.ev)}</span><span class="sub">${vezes(v.ev_ebitda_implicito)} o EBITDA ${anosE[0]}</span></div>`;
+
+  // Ponte EV -> preço
+  const maior = Math.max(v.ev, v.vp_terminal, Math.abs(v.equity), v.divida_liquida, 1);
+  const lp = (rotulo, valor, cls = "") => `<div class="linha ${cls}"><span>${rotulo}</span><span><span class="barra" style="display:block;width:${Math.min(100, (Math.abs(valor) / maior) * 100)}%"></span></span><span class="num">${mi(valor)}</span></div>`;
+  el("ponte").innerHTML =
+    lp(`Fluxos de ${anosE[0]} a ${anosE.at(-1)}, a valor presente`, v.vp_fluxos) +
+    lp(`Perpetuidade, a valor presente (${pct(v.peso_terminal, 0)} do total)`, v.vp_terminal) +
+    lp("Valor da empresa (EV)", v.ev, "total") +
+    lp("− Dívida líquida em " + emp.data_base.split("-").reverse().join("/"), v.divida_liquida, "menos") +
+    lp("− Minoritários", v.minoritarios, "menos") +
+    lp("+ Investimentos em coligadas", v.investimentos) +
+    (v.outros_ajustes ? lp("− Outros passivos", v.outros_ajustes, "menos") : "") +
+    lp("Valor do acionista", v.equity, "total") +
+    `<div class="linha"><span>÷ ${nf(0).format(emp.base.acoes)} milhões de ações</span><span></span><span class="num"><b>${reais(v.preco_justo)}</b></span></div>
+     <div class="linha" style="color:var(--ink-3)"><span>Conferência pelo fluxo do acionista (FCFE, descontado ao Ke)</span><span></span><span class="num">${reais(v.preco_fcfe)}</span></div>`;
+
+  // Gráficos: realizado (anos fechados) + projeção
+  const fechados = h.periodos.map((x, i) => [x, i]).filter(([x]) => !x.startsWith("LTM"));
+  const rot = [...fechados.map(([x]) => x), ...anosE];
+  const serie = (linhaH, linhaP) => [...fechados.map(([, i]) => h[linhaH][i]), ...proj[linhaP]];
+  const corte = fechados.length;
+  const biCurto = (x) => nf(1).format(x / 1000) + " bi";
+  grafico("g-receita", rot, serie("receita", "receita"), corte, biCurto);
+  grafico("g-margem", rot, serie("margem_ebitda", "margem_ebitda"), corte, (x) => pct(x, 0), "linha");
+  grafico("g-fcff", anosE, proj.fcff, 0, biCurto);
+  grafico("g-alav", rot, serie("divida_liquida_ebitda", "divida_liquida_ebitda"), corte, vezes, "linha");
+
+  const lin = (rotulo, nome, fmt = mi, cls = "") => ({ c: [rotulo, ...proj[nome].map((x) => fmt(x))], cls });
+  tabela("t-projecao", ["R$ milhões", ...anosE.map((t) => ({ t, cls: "num" }))], [
+    lin("Receita líquida", "receita", mi, "forte"), lin("EBITDA", "ebitda"), lin("Margem EBITDA", "margem_ebitda", pct),
+    lin("Depreciação", "da"), lin("EBIT", "ebit"), lin("Lucro líquido", "lucro_liquido", mi, "forte"),
+    lin("NOPAT", "nopat", mi, "sep"), lin("Capex", "capex"), lin("Investimento em giro", "variacao_giro"),
+    lin("FCFF", "fcff", mi, "forte"), lin("FCFE", "fcfe", mi, "forte"),
+    lin("Caixa no fim do ano", "caixa_total", mi, "sep"), lin("Dívida líquida / EBITDA", "divida_liquida_ebitda", vezes), lin("ROIC", "roic", pct),
+  ]);
+
+  // Sensibilidade
+  tabela("t-sens", [{ t: "WACC \\ g" }, ...s.gs.map((g) => ({ t: pct(g, 1) }))],
+    s.waccs.map((w, i) => ({
+      c: [pct(w, 1), ...s.precos[i].map((x) => nf(2).format(x))],
+      td: ["", ...s.precos[i].map((x, j) => (x >= v.preco_mercado ? "acima" : "abaixo") + (i === 2 && j === 2 ? " centro" : ""))],
+    })), "sens");
+
+  // Faixas de valor
+  const cen = (nome) => rodar(emp, { ...estado.ajustes, preco: emp.cenarios[nome].variacao_preco[1] }).v.preco_justo;
+  const grade = s.precos.flat();
+  const imp = DADOS.implicitos.filter((x) => x.ticker === emp.ticker && Number.isFinite(x.preco_implicito) && x.preco_implicito > 0).map((x) => x.preco_implicito);
+  faixas("g-faixas", [
+    { rotulo: "DCF, cenários de preço", min: cen("pessimista"), max: cen("otimista"), ponto: v.preco_justo, cor: "var(--accent)" },
+    { rotulo: "DCF, grade de WACC e g", min: Math.min(...grade), max: Math.max(...grade), ponto: v.preco_justo, cor: "var(--accent)" },
+    { rotulo: "Múltiplos das comparáveis", min: imp.length ? Math.min(...imp) : NaN, max: Math.max(...imp), cor: "var(--hist)" },
+    { rotulo: "Cotação em 52 semanas", min: emp.mercado.minimo_52s, max: emp.mercado.maximo_52s, cor: "var(--ore)" },
+  ], v.preco_mercado);
+
+  // Múltiplos
+  const mult = (x) => (Number.isFinite(x) && x !== null ? vezes(x) : "n.a.");
+  const nomesM = { ev_ebitda: "EV/EBITDA", ev_ebit: "EV/EBIT", p_l: "P/L", p_vp: "P/VP" };
+  const linhasM = DADOS.multiplos.map((x) => ({ c: [`${x.empresa} (${x.ticker})`, bi(x.valor_de_mercado), bi(x.ev), mult(x.ev_ebitda), mult(x.ev_ebit), mult(x.p_l), mult(x.p_vp)], cls: x.ticker === emp.ticker ? "forte" : "" }));
+  const meus = Object.fromEntries(DADOS.implicitos.filter((x) => x.ticker === emp.ticker).map((x) => [x.multiplo, x]));
+  linhasM.push({ c: ["Mediana das outras quatro", "", "", ...Object.keys(nomesM).map((k) => mult(meus[k].mediana_pares))], cls: "sep" });
+  linhasM.push({ c: [`Preço implícito de ${emp.ticker}`, "", "", ...Object.keys(nomesM).map((k) => (Number.isFinite(meus[k].preco_implicito) && meus[k].preco_implicito !== null ? reais(meus[k].preco_implicito) : "n.a."))], cls: "forte" });
+  tabela("t-multiplos", ["Empresa", "Valor de mercado", "EV", ...Object.values(nomesM)].map((t, i) => (i ? { t, cls: "num" } : t)), linhasM);
+
+  // Histórico
+  const lh = (rotulo, nome, fmt = mi) => ({ c: [rotulo, ...h[nome].map((x) => (Number.isFinite(x) ? fmt(x) : "–"))] });
+  tabela("t-historico", ["R$ milhões", ...h.periodos.map((t) => ({ t, cls: "num" }))], [
+    lh("Receita líquida", "receita"), lh("EBITDA", "ebitda"), lh("Margem EBITDA", "margem_ebitda", pct), lh("EBIT", "ebit"),
+    lh("Lucro líquido", "lucro_liquido"), lh("Caixa operacional", "fco"), lh("Capex", "capex"), lh("Depreciação", "da"),
+    lh("Dívida líquida", "divida_liquida"), lh("Dívida líquida / EBITDA", "divida_liquida_ebitda", vezes), lh("ROIC", "roic", pct), lh("ROE", "roe", pct),
+  ]);
+
+  // Premissas
+  const fmtPrem = (nome, x) => (/prazo/.test(nome) ? nf(0).format(x) : /equivalencia|captacao|outros_ajustes/.test(nome) ? mi(x) : /beta/.test(nome) ? nf(2).format(x) : /capex_perpetuidade/.test(nome) ? vezes(x) : pct(x, 1));
+  const porAno = Object.keys(emp.premissas).filter((k) => Array.isArray(emp.premissas[k]));
+  tabela("t-prem-ano", ["Premissa", ...anosE.map((t) => ({ t, cls: "num" })), { t: "De onde veio" }],
+    porAno.map((k) => ({ c: [DADOS.rotulos[k], ...p[k].map((x) => fmtPrem(k, x)), emp.origens[k]], td: [...Array(emp.anos.length + 1).fill(""), "origem"] })));
+  tabela("t-prem-geral", ["Premissa", { t: "Valor", cls: "num" }, { t: "De onde veio" }],
+    Object.keys(emp.premissas).filter((k) => !Array.isArray(emp.premissas[k])).map((k) => ({ c: [DADOS.rotulos[k], fmtPrem(k, p[k]), emp.origens[k]], td: ["", "", "origem"] })));
+
+  const data = (i) => DADOS.macro.find((x) => x.indicador === i).data.split("-").reverse().join("/");
+  el("fontes").textContent = `Fontes: demonstrações consolidadas na CVM (DFP 2018–2025 e ITR até ${emp.data_base.split("-").reverse().join("/")}); cotações da B3 (COTAHIST); Tesouro Direto (${data("juro_prefixado_longo")}); Boletim Focus do Banco Central (${data("ipca_2030")}); prêmios de risco de Aswath Damodaran, NYU (${data("premio_mercado_maduro")}).`;
+}
+
+montarControles();
+comDica(document.body);
+desenhar();
+</script>
