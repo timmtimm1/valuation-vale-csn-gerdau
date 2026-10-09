@@ -5,8 +5,9 @@ montado só com dados públicos. Sai em dois formatos:
 
 - uma **página interativa** (`site/index.html`), em que dá para escolher o cenário, ajustar
   três variáveis dentro de uma faixa e ver o preço por ação mudar na hora;
-- uma **planilha por empresa** (`saida/valuation_<TICKER>.xlsx`), com todas as contas em
-  fórmulas do Excel. Troque qualquer célula azul e a planilha inteira recalcula.
+- uma **planilha** (`saida/valuation_vale_csn_gerdau.xlsx`) com as três empresas e todas as
+  contas em fórmulas. Na primeira aba escolhe-se a empresa e o cenário em duas listas e o
+  arquivo inteiro recalcula. Abre no Excel e no LibreOffice.
 
 > Estudo acadêmico e de portfólio. Não é recomendação de compra ou venda.
 
@@ -16,28 +17,53 @@ A página e a planilha seguem esta ordem:
 
 | # | Etapa | Na planilha |
 |---|---|---|
-| 1 | Demonstrativos: DRE, balanço e fluxo de caixa de 2018 ao 2T26 | Histórico |
+| 1 | Demonstrativos: DRE, balanço e fluxo de caixa de 2018 ao 2T26 | Demonstrativos |
 | 2 | Como os três demonstrativos se ligam, com o balanço fechando | Projeção |
-| 3 | EBIT, EBITDA, NOPAT, margens, ROIC, ROE e alavancagem | Histórico |
+| 3 | EBIT, EBITDA, NOPAT, margens, ROIC, ROE e alavancagem | Demonstrativos |
 | 4 | Projeção de receita, custos, margens e crescimento | Projeção |
 | 5 | Capital de giro | Projeção |
 | 6 | Investimentos (capex) e despesas operacionais (opex) | Projeção |
 | 7 | Depreciação e amortização | Projeção |
 | 8 | Valuation por múltiplos contra comparáveis | Múltiplos |
-| 9 | Valuation por fluxo de caixa descontado (DCF) | DCF |
-| 10 | Fluxo de caixa da empresa (FCFF) e do acionista (FCFE) | DCF |
+| 9 | Valuation por fluxo de caixa descontado (DCF) | Valor justo |
+| 10 | Fluxo de caixa da empresa (FCFF) e do acionista (FCFE) | FCFF |
 | 11 | CAPM e WACC | WACC |
-| 12 | Enterprise Value e Equity Value | DCF |
+| 12 | Enterprise Value e Equity Value | Valor justo |
 | 13 | Cenários: entradas e saídas de caixa | Cenários |
-| 14 | Análise de sensibilidade | DCF |
+| 14 | Análise de sensibilidade | Valor justo |
 
 Sinergias de M&A e valuation pre/post-money ficaram fora: as três empresas são de capital
 aberto e não há transação nem rodada de captação real para modelar.
+
+## A planilha
+
+Segue o valuation pelo fluxo de caixa da empresa, começando pelo FCFF. Cada linha de conta
+tem ao lado uma frase dizendo o que é e como foi calculada.
+
+| Aba | O que tem |
+|---|---|
+| Painel | Escolha da empresa e do cenário, ajuste manual das três variáveis e o resultado |
+| Passo a passo | O preço justo em sete passos, com os números da empresa escolhida |
+| Demonstrativos | DRE, fluxo de caixa, balanço e indicadores de 2018 ao 2T26 |
+| Projeção | Receita, custos, margens, capex, depreciação, giro e balanço até 2030 |
+| FCFF | Caixa livre da empresa e do acionista, ano a ano |
+| WACC | CAPM, custo da dívida e a taxa em uso |
+| Valor justo | Desconto dos fluxos, perpetuidade, EV, valor do acionista, preço e sensibilidade |
+| Múltiplos | EV/EBITDA, P/L e P/VP contra as comparáveis |
+| Cenários | Entradas e saídas de caixa e os três cenários lado a lado |
+| Correlação | Variação mensal de cada ação contra a do minério de ferro |
+| Glossário | O que é cada indicador e como se calcula |
+| Premissas | Um bloco editável por empresa (células azuis) |
+| Dados | O histórico da CVM das três empresas |
+
+A correlação usa a variação de um mês para o outro, de 2021 a 2026: o minério explica 48%
+da oscilação da Vale, 30% da CSN e 14% da Gerdau.
 
 ## De onde vêm os dados
 
 - **CVM**, dados abertos: DFP (anual) e ITR (trimestral) consolidados.
 - **B3**, arquivo COTAHIST: preços, valor de mercado e beta (contra o BOVA11).
+- **Banco Mundial**: preço mensal do minério de ferro. **Banco Central**: dólar mensal.
 - **Tesouro Direto**: juro sem risco. **Focus**: inflação esperada.
   **Damodaran (NYU)**: prêmio de risco de mercado.
 
@@ -49,7 +75,7 @@ Cada número de mercado fica em `dados/macro.csv` com data e link.
 uv sync
 uv run valuation extrair     # baixa CVM, B3 e macro; monta dados/
 uv run valuation propor      # gera premissas/<ticker>.yaml por regra
-uv run valuation gerar       # planilhas em saida/
+uv run valuation gerar       # a planilha em saida/, já calculada pelo LibreOffice
 uv run valuation pagina      # site/index.html
 uv run valuation verificar   # LibreOffice recalcula e compara com o Python
 uv run pytest
@@ -79,10 +105,11 @@ ponto de partida: o analista edita o arquivo e troca `status: proposta` por
 
 ## Três versões do mesmo modelo, conferidas entre si
 
-A conta existe em Python (`src/valuation/modelo.py`), em fórmulas do Excel
+A conta existe em Python (`src/valuation/modelo.py`), em fórmulas de planilha
 (`planilha.py`) e em JavaScript (`site/modelo.js`). Os testes exigem que as três cheguem
-ao mesmo resultado: o LibreOffice recalcula a planilha sem tela e o Node roda o
-JavaScript, e ambos são comparados com o Python linha a linha.
+ao mesmo resultado: o LibreOffice recalcula a planilha sem tela, trocando a empresa, o
+cenário e os ajustes manuais, e o Node roda o JavaScript; ambos são comparados com o
+Python linha a linha.
 
 ## Simplificações que vale conhecer
 
@@ -94,5 +121,6 @@ JavaScript, e ambos são comparados com o Python linha a linha.
 - Juros calculados sobre os saldos do início do ano, para não haver referência circular.
 - Provisões (barragens, contingências) não entram como dívida, a menos que o analista
   preencha "outros passivos tratados como dívida".
-- Beta com preços não ajustados por proventos.
+- Preços ajustados pela bonificação da Gerdau de 2024, mas não por dividendos (beta e
+  correlação).
 - Fusões e aquisições e valuation pre/post-money ficaram fora do escopo.
