@@ -2,7 +2,7 @@
 
 import typer
 
-from valuation import b3, cvm, historico, macro, multiplos, planilha, premissas
+from valuation import b3, commodities, cvm, historico, macro, multiplos, planilha, premissas
 from valuation.empresas import FOCO
 
 app = typer.Typer(help="Valuation de VALE3, CSNA3 e GGBR4.", no_args_is_help=True)
@@ -20,6 +20,7 @@ def extrair(atualizar: bool = typer.Option(False, help="Baixa de novo cotações
     b3.construir_mercado(b3.extrair_precos(atualizar))
     macro.extrair(atualizar)
     multiplos.construir()
+    commodities.correlacao(commodities.series(atualizar))
     typer.echo("dados/ atualizado")
 
 
@@ -31,20 +32,20 @@ def propor(ticker: str = typer.Argument(None)) -> None:
 
 
 @app.command()
-def gerar(ticker: str = typer.Argument(None)) -> None:
-    """Gera a planilha de cada empresa em saida/."""
-    for t in _tickers(ticker):
-        typer.echo(planilha.gerar(t))
+def gerar() -> None:
+    """Gera a planilha do estudo em saida/, já calculada pelo LibreOffice."""
+    typer.echo(planilha.gerar())
 
 
 @app.command()
 def verificar(ticker: str = typer.Argument(None)) -> None:
-    """Recalcula cada planilha no LibreOffice e compara com o modelo em Python."""
+    """Recalcula a planilha no LibreOffice e compara com o modelo em Python."""
     from valuation import verificar as v
 
+    molde = planilha.montar()
     falhou = False
     for t in _tickers(ticker):
-        problemas = v.conferir(t)
+        problemas = v.conferir(t, molde)
         typer.echo(f"{t}: {'ok' if not problemas else f'{len(problemas)} divergências'}")
         for problema in problemas[:20]:
             typer.echo(f"  {problema}")
