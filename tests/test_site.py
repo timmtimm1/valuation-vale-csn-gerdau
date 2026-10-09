@@ -3,11 +3,12 @@
 import json
 import shutil
 import subprocess
+from pathlib import Path
 
 import pytest
 
 from valuation import modelo, premissas, site
-from valuation.empresas import FOCO, SITE
+from valuation.empresas import FOCO, REPOSITORIO, SITE
 
 RODAR = """
 const M = require(process.argv.at(-1));
@@ -52,3 +53,18 @@ def test_javascript_bate_com_python(ticker: str) -> None:
         grade = modelo.sensibilidade(r["base"], r["projecao"], r["premissas"])
         achatado = [preco for linha in js["s"]["precos"] for preco in linha]
         assert achatado == pytest.approx(grade.to_numpy().ravel().tolist(), rel=1e-9)
+
+
+def test_links_publicos_ficam_so_na_pagina_completa(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for nome in ("pagina.html", "modelo.js"):
+        shutil.copy(SITE / nome, tmp_path / nome)
+    monkeypatch.setattr(site, "SITE", tmp_path)
+    pagina = site.construir().read_text(encoding="utf-8")
+    artefato = (tmp_path / "artefato.html").read_text(encoding="utf-8")
+    planilha = f"{REPOSITORIO}/raw/main/saida/valuation_vale_csn_gerdau.xlsx"
+    assert f'href="{planilha}"' in pagina
+    assert f'href="{REPOSITORIO}/blob/main/FONTES.md"' in pagina
+    assert REPOSITORIO not in artefato
+    assert site.LIGACOES not in pagina + artefato

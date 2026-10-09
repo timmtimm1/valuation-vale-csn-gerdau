@@ -14,6 +14,10 @@ PREMISSAS = RAIZ / "premissas"
 SAIDA = RAIZ / "saida"
 SITE = RAIZ / "site"
 
+# Onde o projeto está publicado.
+REPOSITORIO = "https://github.com/timmtimm1/valuation-vale-csn-gerdau"
+PAGINA = "https://timmtimm1.github.io/valuation-vale-csn-gerdau/"
+
 
 @dataclass(frozen=True)
 class Empresa:
