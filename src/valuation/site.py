@@ -4,21 +4,28 @@
 são as contas. Aqui os dois são juntados com os dados das três empresas em
 `site/index.html`, que abre direto no navegador e pode ser hospedado em qualquer
 servidor de arquivos estáticos.
+
+A análise escrita não fica no molde. Ela mora no README, e a página mostra o
+mesmo texto, para não haver duas versões.
 """
 
 import json
 from pathlib import Path
 from typing import Any
 
+import markdown
 import pandas as pd
 
 from valuation import historico, modelo, multiplos, premissas
-from valuation.empresas import FOCO, PAGINA, REPOSITORIO, SITE
+from valuation.empresas import FOCO, PAGINA, RAIZ, REPOSITORIO, SITE
 from valuation.macro import MACRO_CSV
 from valuation.planilha import ARQUIVO
 
 CORPO = '<div class="wrap">'
 LIGACOES = "<!--__LIGACOES__-->"
+# A análise é escrita uma vez só, no README, entre marcadores. A página mostra o mesmo texto.
+LEIAME = RAIZ / "README.md"
+TRECHOS = {"<!--__RESUMO__-->": "resumo", "<!--__ANALISE__-->": "analise"}
 DESCRICAO = (
     "Valuation de VALE3, CSNA3 e GGBR4 por fluxo de caixa descontado e por múltiplos, "
     "com três cenários ajustáveis e só dados públicos."
@@ -131,6 +138,19 @@ def dados_da_pagina() -> dict[str, Any]:
     }
 
 
+def trecho_do_leiame(nome: str) -> str:
+    """O texto do README entre `<!-- nome:inicio -->` e `<!-- nome:fim -->`, em HTML."""
+    texto = LEIAME.read_text(encoding="utf-8")
+    inicio, fim = f"<!-- {nome}:inicio -->", f"<!-- {nome}:fim -->"
+    if texto.count(inicio) != 1 or texto.count(fim) != 1:
+        raise ValueError(f"o README precisa ter uma vez cada marcador de '{nome}'")
+    html = markdown.markdown(texto.split(inicio)[1].split(fim)[0], extensions=["tables"])
+    # A tabela ganha rolagem própria, para não alargar a página no celular.
+    return html.replace("<table>", '<div class="rolagem"><table>').replace(
+        "</table>", "</table></div>"
+    )
+
+
 def _ligacoes() -> str:
     """Links da página publicada: a planilha, o código e o registro das fontes."""
     return (
@@ -147,6 +167,8 @@ def construir() -> Path:
     motor = (SITE / "modelo.js").read_text(encoding="utf-8")
     dados = json.dumps(dados_da_pagina(), ensure_ascii=False, separators=(",", ":"))
     fragmento = molde.replace("/*__MODELO__*/", motor).replace("/*__DADOS__*/", dados)
+    for marca, nome in TRECHOS.items():
+        fragmento = fragmento.replace(marca, trecho_do_leiame(nome))
     # O artefato não deixa baixar arquivo: os links ficam só na página completa.
     (SITE / "artefato.html").write_text(fragmento.replace(LIGACOES, ""), encoding="utf-8")
 

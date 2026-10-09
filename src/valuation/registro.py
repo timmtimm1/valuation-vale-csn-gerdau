@@ -225,10 +225,9 @@ def fotografia(dia: date | None = None) -> Path:
         ],
     ]
 
-    resultado, cenarios, status = [], [], set()
+    resultado, cenarios = [], []
     for e in FOCO:
         dados = premissas.carregar(e.ticker)
-        status.add(dados["status"])
         rodadas = {c: modelo.rodar(e.ticker, dados, c) for c in premissas.CENARIOS}
         v = rodadas["moderado"]["valuation"]
         resultado.append(
@@ -270,17 +269,14 @@ def fotografia(dia: date | None = None) -> Path:
         ]
         for _, linha in em_dolar.iterrows()
     ]
-    revisao = (
-        "As premissas foram revisadas e aprovadas pelo autor."
-        if status == {"aprovada"}
-        else "As premissas são uma proposta por regra, ainda não revisada pelo autor: os preços "
-        "abaixo são resultado dessas regras, não uma opinião."
-    )
     nomes = [c.capitalize() for c in premissas.CENARIOS]
     texto = f"""# Análise de {_br(dia.isoformat())}
 
-Registro de como o mercado estava e do que o modelo calculou nesta data. Estudo acadêmico e
-de portfólio; não é recomendação de compra ou venda.
+Registro de como o mercado estava e do que o modelo calculou nesta data. A leitura desses
+números está no [README](../README.md#o-que-os-números-dizem).
+
+Isto não é recomendação de investimento. É uma análise feita com os dados que as próprias
+empresas divulgam e com simulações que juntam dados reais e dados projetados.
 
 ## Preço das ações
 
@@ -297,7 +293,8 @@ Outros papéis usados nas contas, no mesmo fechamento: {demais}.
 
 ## Resultado do modelo
 
-{revisao}
+Os três cenários saem de regras fixas sobre o histórico de cada empresa e sobre dados de
+mercado, descritas no README.
 
 Preço por ação pelo fluxo de caixa descontado (FCFF), em cada cenário. Valor negativo quer
 dizer que, naquele cenário, a dívida supera o valor da empresa.
