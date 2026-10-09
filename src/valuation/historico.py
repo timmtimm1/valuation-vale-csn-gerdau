@@ -30,6 +30,8 @@ DRE = {
     "equivalencia": "3.04.06",
     "ebit": "3.05",
     "resultado_financeiro": "3.06",
+    "receitas_financeiras": "3.06.01",
+    "despesas_financeiras": "3.06.02",
     "lair": "3.07",
     "ir": "3.08",
     "lucro_liquido": "3.11",
@@ -202,6 +204,11 @@ def _indicadores(t: pd.DataFrame) -> pd.DataFrame:
     t["liquidez_corrente"] = t["ativo_circulante"] / t["passivo_circulante"]
     t["roe"] = t["lucro_controladores"] / (t["patrimonio_liquido"] - t["minoritarios"])
     t["roic"] = t["nopat"] / t["capital_investido"]
+    # Juros sobre o saldo médio. Na despesa entram variação cambial e derivativos,
+    # então em ano de câmbio forte a taxa implícita não é o custo contratado.
+    t["custo_implicito_divida"] = -t["despesas_financeiras"] / t["divida_bruta"].rolling(2).mean()
+    t["rendimento_implicito_caixa"] = t["receitas_financeiras"] / t["caixa_total"].rolling(2).mean()
+    t["payout"] = t["dividendos_pagos"] / t["lucro_liquido"]
     t["fcl_simples"] = t["fco"] - t["capex"]  # caixa operacional menos investimento
     return t
 
