@@ -4,8 +4,8 @@ O COTAHIST é o histórico oficial de pregões, em texto de largura fixa, um zip
 ano. Daqui saem o preço atual, a faixa de 52 semanas, o valor de mercado e o beta.
 
 O arquivo não traz o Ibovespa, então o beta usa o BOVA11 (ETF que replica o
-índice) como carteira de mercado. Os preços não são ajustados por proventos: em
-retornos semanais o efeito de um dividendo é pequeno, mas existe.
+índice) como carteira de mercado. Os preços são ajustados por bonificação, mas não
+por dividendos: em retornos semanais o efeito de um dividendo é pequeno, mas existe.
 """
 
 import io
@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 
 from valuation.cvm import ACOES_CSV
-from valuation.empresas import CACHE, DADOS, EMPRESAS
+from valuation.empresas import CACHE, DADOS, EMPRESAS, EVENTOS
 
 URL = "https://bvmf.bmfbovespa.com.br/InstDados/SerHist/COTAHIST_A{ano}.ZIP"
 MERCADO = "BOVA11"
@@ -73,10 +73,18 @@ def extrair_precos(atualizar: bool = False) -> pd.DataFrame:
     return precos
 
 
+def tabela_ajustada(precos: pd.DataFrame) -> pd.DataFrame:
+    """Fechamentos, uma coluna por ticker, com o passado corrigido pelas bonificações."""
+    tabela = precos.pivot(index="data", columns="ticker", values="fechamento")
+    for ticker, data_ex, fator in EVENTOS:
+        if ticker in tabela:
+            tabela.loc[tabela.index < pd.Timestamp(data_ex), ticker] /= fator
+    return tabela
+
+
 def _retornos_semanais(precos: pd.DataFrame) -> pd.DataFrame:
     """Retorno semanal (sexta a sexta) de cada papel, uma coluna por ticker."""
-    tabela = precos.pivot(index="data", columns="ticker", values="fechamento")
-    semanal = tabela.resample("W-FRI").last()
+    semanal = tabela_ajustada(precos).resample("W-FRI").last()
     return np.log(semanal / semanal.shift(1))
 
 

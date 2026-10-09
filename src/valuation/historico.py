@@ -27,6 +27,7 @@ DRE = {
     "despesas_operacionais": "3.04",
     "despesas_vendas": "3.04.01",
     "despesas_ga": "3.04.02",
+    "perdas_recuperabilidade": "3.04.03",
     "equivalencia": "3.04.06",
     "ebit": "3.05",
     "resultado_financeiro": "3.06",
@@ -170,6 +171,17 @@ def _indicadores(t: pd.DataFrame) -> pd.DataFrame:
         t["despesas_operacionais"] - t["despesas_vendas"] - t["despesas_ga"] - t["equivalencia"]
     )
     t["ebitda"] = t["ebit"] + t["da"]
+    # Perda por recuperabilidade (impairment) não sai do caixa nem se repete: a projeção
+    # parte do EBITDA sem ela. Em 2025 foram R$ 25 bi na Vale e R$ 2 bi na Gerdau.
+    t["perdas_recuperabilidade"] = t["perdas_recuperabilidade"].fillna(0.0)
+    t["ebitda_recorrente"] = t["ebitda"] - t["perdas_recuperabilidade"]
+    # Despesas operacionais recorrentes: vendas, administrativas e outras, sem o impairment.
+    t["despesas_recorrentes"] = -(
+        t["despesas_vendas"]
+        + t["despesas_ga"]
+        + t["outras_operacionais"]
+        - t["perdas_recuperabilidade"]
+    )
     # O modelo projeta o custo sem a depreciação, para ela reagir ao capex.
     t["custo_caixa"] = t["custo"] + t["da"]
     t["nopat"] = (t["ebit"] - t["equivalencia"]) * (1 - ALIQUOTA_IR)
@@ -185,6 +197,8 @@ def _indicadores(t: pd.DataFrame) -> pd.DataFrame:
     t["crescimento_receita"] = receita.pct_change()
     t["margem_bruta"] = t["lucro_bruto"] / receita
     t["margem_ebitda"] = t["ebitda"] / receita
+    t["margem_ebitda_recorrente"] = t["ebitda_recorrente"] / receita
+    t["despesas_pct"] = t["despesas_recorrentes"] / receita
     t["margem_ebit"] = t["ebit"] / receita
     t["margem_liquida"] = t["lucro_liquido"] / receita
     t["custo_caixa_pct"] = -t["custo_caixa"] / receita

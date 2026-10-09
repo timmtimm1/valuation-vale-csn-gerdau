@@ -1,31 +1,43 @@
-"""Gera a planilha de cada empresa com as contas em fórmulas do Excel.
+"""Gera a planilha do estudo: um arquivo só, com as três empresas e todas as contas em fórmulas.
 
-Nada de número calculado em Python colado como valor: o histórico entra como dado
-e todo o resto (indicadores, projeção, WACC, DCF, sensibilidade, múltiplos) é
-fórmula. Quem abre pode trocar qualquer célula azul e ver o preço mudar.
+Na aba Painel escolhe-se a empresa e o cenário em duas listas; o resto do arquivo
+recalcula. O caminho segue o valuation pelo fluxo de caixa da empresa: FCFF, WACC,
+valor presente, valor da empresa, valor do acionista e preço por ação. Cada linha
+traz ao lado uma frase dizendo o que é e como foi calculada.
 
-A única exceção é a tabela comparativa dos três cenários, que o Excel só faria
-com Tabela de Dados: ali os valores vêm do modelo em Python, e uma célula ao lado
-confere o cenário selecionado contra a planilha viva.
+Como a escolha da empresa funciona: as abas Dados e Premissas guardam um bloco por
+empresa, todos com o mesmo desenho e a mesma altura. As abas do modelo leem sempre
+um bloco "em uso", que busca a linha certa com INDEX, somando a altura do bloco
+vezes o número da empresa escolhida.
+
+Nada de número calculado em Python colado como valor, com duas exceções: o
+histórico da CVM, que é dado, e o comparativo dos cenários na aba Cenários, que o
+LibreOffice e o Excel só fariam com tabela de dados.
 
 Todas as abas com anos usam as mesmas colunas: C é o ano-base, D em diante são
-os anos projetados. Assim uma fórmula sempre olha para a mesma letra em outra aba.
+os anos projetados.
 """
 
+import shutil
+import subprocess
+import tempfile
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 from openpyxl import Workbook
-from openpyxl.chart import BarChart, Reference
+from openpyxl.chart import BarChart, LineChart, Reference, ScatterChart, Series
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.worksheet import Worksheet
 
-from valuation import historico, modelo, multiplos, premissas
-from valuation.empresas import SAIDA, empresa
+from valuation import commodities, historico, modelo, multiplos, premissas
+from valuation.empresas import FOCO, SAIDA
+from valuation.explicacoes import GLOSSARIO, LINHAS, PASSOS
+
+ARQUIVO = SAIDA / "valuation_vale_csn_gerdau.xlsx"
 
 COL_BASE = 3  # C
 COL_ANO1 = 4  # D
@@ -33,18 +45,23 @@ COL_ANO1 = 4  # D
 AZUL = Font(color="0000FF")
 NEGRITO = Font(bold=True)
 TITULO = Font(bold=True, size=14)
+GRANDE = Font(bold=True, size=13, color="1F3864")
 BRANCO = Font(bold=True, color="FFFFFF")
+CINZA = Font(italic=True, color="595959")
 FUNDO_CABECALHO = PatternFill("solid", fgColor="1F3864")
 FUNDO_SECAO = PatternFill("solid", fgColor="D9E1F2")
 FUNDO_ENTRADA = PatternFill("solid", fgColor="FFF2CC")
 FUNDO_RESULTADO = PatternFill("solid", fgColor="E2EFDA")
+QUEBRA = Alignment(wrap_text=True, vertical="top")
 
 MI = "#,##0;[Red]-#,##0"
 PCT = "0.0%;[Red]-0.0%"
+PCT2 = "0.00%;[Red]-0.00%"
 DIAS = "0"
 VEZES = '0.00"x"'
 REAIS = '"R$" #,##0.00;[Red]-"R$" #,##0.00'
 DEC = "0.00"
+DATA = "DD/MM/YYYY"
 
 FORMATO_PREMISSA = {
     "equivalencia": MI,
@@ -55,8 +72,19 @@ FORMATO_PREMISSA = {
     "prazo_pagamento": DIAS,
     "beta": DEC,
     "capex_perpetuidade": VEZES,
+    "ajuste_wacc": PCT2,
 }
-NOME_CENARIO = {"pessimista": "Pessimista", "base": "Base", "otimista": "Otimista"}
+NOME_CENARIO = {"pessimista": "Pessimista", "moderado": "Moderado", "otimista": "Otimista"}
+TICKERS = [e.ticker for e in FOCO]
+NOME_EMPRESA = {e.ticker: f"{e.nome} ({e.ticker})" for e in FOCO}
+
+# --- Painel: endereços fixos, porque todas as outras abas dependem deles.
+EMP = "'Painel'!$Y$5"  # número da empresa escolhida (1, 2 ou 3)
+CEN = "'Painel'!$Y$9"  # número do cenário (1 pessimista, 2 moderado, 3 otimista)
+CELULA_EMPRESA, CELULA_CENARIO = "D5", "D6"
+LINHA_VARIAVEL = {"crescimento_receita": 10, "margem_ebitda": 11, "wacc": 12}
+COL_USO, COL_PESS, COL_MOD, COL_OTIM, COL_MANUAL, COL_PARTIDA = 3, 4, 5, 6, 7, 8
+USO = {nome: f"'Painel'!$C${linha}" for nome, linha in LINHA_VARIAVEL.items()}
 
 Formula = Callable[[int], Any]
 
@@ -79,14 +107,10 @@ class Aba:
         cifrao = "$" if fixa else ""
         return f"'{self.ws.title}'!{cifrao}{L(coluna)}{cifrao}{self.linha[nome]}"
 
-    def intervalo(self, nome: str) -> str:
-        r = self.linha[nome]
-        return f"'{self.ws.title}'!${L(self.colunas[0])}${r}:${L(self.colunas[-1])}${r}"
-
     def titulo(self, texto: str, subtitulo: str = "") -> None:
         self.ws.cell(1, 2, texto).font = TITULO
         if subtitulo:
-            self.ws.cell(2, 2, subtitulo).font = Font(italic=True, color="595959")
+            self.ws.cell(2, 2, subtitulo).font = CINZA
         self.proxima = 4
 
     def cabecalho(self, rotulos: dict[int, Any], primeira: str = "R$ milhões") -> None:
@@ -95,7 +119,8 @@ class Aba:
             celula = self.ws.cell(r, c, rotulos.get(c, primeira if c == 2 else None))
             celula.font = BRANCO
             celula.fill = FUNDO_CABECALHO
-            celula.alignment = Alignment(horizontal="left" if c == 2 else "center")
+            esquerda = c == 2 or c > self.colunas[-1]
+            celula.alignment = Alignment(horizontal="left" if esquerda else "center")
         self.proxima += 1
 
     def secao(self, texto: str) -> None:
@@ -114,7 +139,6 @@ class Aba:
         rotulo: str,
         conteudo: Formula | dict[int, Any],
         formato: str = MI,
-        entrada: bool = False,
         destaque: bool = False,
         nota: str = "",
     ) -> None:
@@ -126,13 +150,10 @@ class Aba:
                 continue
             celula = self.ws.cell(r, c, valor)
             celula.number_format = formato
-            if entrada:
-                celula.font = AZUL
-                celula.fill = FUNDO_ENTRADA
-            elif destaque:
+            if destaque:
                 celula.font = NEGRITO
         if nota:
-            self.ws.cell(r, self.colunas[-1] + 1, nota).font = Font(italic=True, color="595959")
+            self.ws.cell(r, self.colunas[-1] + 1, nota).font = CINZA
         self.proxima = max(self.proxima, r + 1)
 
     def planejar(self, nomes: list[str | None]) -> None:
@@ -146,7 +167,7 @@ class Aba:
                 self.linha[nome] = r
             r += 1
 
-    def larguras(self, rotulo: int = 46, numeros: int = 13, nota: int = 70) -> None:
+    def larguras(self, rotulo: int = 46, numeros: int = 13, nota: int = 100) -> None:
         self.ws.column_dimensions["A"].width = 2
         self.ws.column_dimensions["B"].width = rotulo
         for c in range(3, self.colunas[-1] + 1):
@@ -155,208 +176,316 @@ class Aba:
         self.ws.sheet_view.showGridLines = False
 
 
-def _celula(ws: Worksheet, linha: int, coluna: int = 4) -> str:
-    return f"'{ws.title}'!${L(coluna)}${linha}"
+def _explicacao(aba: Aba, texto: str = "O que é e como se calcula") -> dict[int, str]:
+    """Cabeçalho da coluna de explicação, que fica depois da última coluna de números."""
+    return {aba.colunas[-1] + 1: texto}
+
+
+def _titulo_com_empresa(ws: Worksheet, texto: str) -> None:
+    """Título da aba seguido do nome da empresa escolhida no Painel."""
+    ws.cell(
+        1, 2, f"=\"{texto} - \"&'Painel'!${CELULA_EMPRESA[0]}${CELULA_EMPRESA[1:]}"
+    ).font = TITULO
 
 
 # --------------------------------------------------------------------------- Premissas
 
+# Cada empresa ocupa um bloco de ALTURA_PREMISSAS linhas, todos com o mesmo desenho.
+# O primeiro bloco é o "em uso": cada célula dele busca a mesma posição no bloco da
+# empresa escolhida. `REL` diz em que linha do bloco cada premissa fica.
+TOPO_PREMISSAS = 5
+MERCADO = ("data_base", "acoes", "preco", "valor_de_mercado", "data_preco")
+
+
+def _desenho_premissas() -> tuple[dict[str, int], int]:
+    rel: dict[str, int] = {"titulo": 0, "cab_cenario": 1}
+    r = 2
+    for grupo, cabecalho in (
+        (premissas.VARIAVEIS, None),
+        (premissas.POR_ANO, "cab_ano"),
+        (premissas.ESCALARES, "cab_geral"),
+        (MERCADO, "cab_mercado"),
+    ):
+        if cabecalho:
+            r += 1  # linha em branco entre as tabelas
+            rel[cabecalho] = r
+            r += 1
+        for nome in grupo:
+            rel[nome] = r
+            r += 1
+    return rel, r + 2
+
+
+REL, ALTURA_PREMISSAS = _desenho_premissas()
+FIM_PREMISSAS = TOPO_PREMISSAS + ALTURA_PREMISSAS * (len(TICKERS) + 1)
+
+
+def P(nome: str, coluna: int = COL_ANO1) -> str:  # noqa: N802 - aparece em toda fórmula
+    """Endereço, no bloco em uso da aba Premissas, da premissa da empresa escolhida."""
+    return f"'Premissas'!${L(coluna)}${TOPO_PREMISSAS + REL[nome]}"
+
 
 def _aba_premissas(
-    wb: Workbook, dados: dict[str, Any], base: modelo.Base, mercado: pd.Series
-) -> tuple[Aba, dict[str, str]]:
-    """Entradas do modelo. Devolve a aba e o endereço de cada premissa escalar."""
-    anos: list[int] = dados["anos"]
+    wb: Workbook, todos: dict[str, dict[str, Any]], anos: list[int], mercado: pd.DataFrame
+) -> None:
+    ws = wb.create_sheet("Premissas")
     colunas = list(range(COL_ANO1, COL_ANO1 + len(anos)))
-    aba = Aba(wb.create_sheet("Premissas"), colunas)
-    ws = aba.ws
-    status = "PROPOSTA AUTOMÁTICA, AINDA NÃO APROVADA" if dados["status"] != "aprovada" else ""
-    aba.titulo(
-        f"Premissas - {dados['empresa']} ({dados['ticker']})",
-        "Células azuis em fundo amarelo são entradas: troque e a planilha inteira recalcula. "
-        + status,
-    )
-    p = dados["premissas"]
-    esc: dict[str, str] = {}
-
-    # Seletor de cenário
-    ws.cell(4, 2, "Cenário em uso").font = NEGRITO
-    seletor = ws.cell(4, 4, "Base")
-    seletor.font, seletor.fill = AZUL, FUNDO_ENTRADA
-    for i, nome in enumerate(premissas.CENARIOS):
-        ws.cell(4 + i, 12, NOME_CENARIO[nome])
-    ws.cell(3, 12, "Cenários").font = NEGRITO
-    validacao = DataValidation(type="list", formula1="$L$4:$L$6", allow_blank=False)
-    ws.add_data_validation(validacao)
-    validacao.add("D4")
-    ws.cell(5, 2, "Número do cenário (1 pessimista, 2 base, 3 otimista)")
-    ws.cell(5, 4, "=MATCH(D4,L4:L6,0)")
-    esc["cenario"] = _celula(ws, 5)
-    aba.proxima = 7
-
-    rotulos_anos = {c: f"{a}E" for c, a in zip(colunas, anos, strict=True)}
     nota_col = colunas[-1] + 1
+    ws.cell(1, 2, "Premissas").font = TITULO
+    ws.cell(
+        2,
+        2,
+        "O primeiro bloco mostra a empresa escolhida no Painel e é o que o modelo lê. Para "
+        "mudar uma premissa, edite as células azuis no bloco da empresa, mais abaixo.",
+    ).font = CINZA
 
-    aba.cabecalho({**rotulos_anos, nota_col: "De onde veio"}, "Cenário base (editável)")
-    for nome, rotulo in premissas.POR_ANO.items():
-        v = p[nome]["valores"]
-        aba.escrever(
-            f"base_{nome}",
-            rotulo,
-            dict(zip(colunas, v, strict=True)),
-            FORMATO_PREMISSA.get(nome, PCT),
-            entrada=True,
-            nota=p[nome]["origem"],
-        )
-    aba.pular()
+    def cabecalho(r: int, primeira: str, rotulos: dict[int, str]) -> None:
+        for c in range(2, nota_col + 1):
+            celula = ws.cell(r, c, rotulos.get(c, primeira if c == 2 else None))
+            celula.font, celula.fill = BRANCO, FUNDO_CABECALHO
+            celula.alignment = Alignment(horizontal="left" if c in (2, nota_col) else "center")
 
-    aba.cabecalho(
-        {**rotulos_anos, nota_col: dados["cenarios"].get("origem", "")},
-        "Choque dos cenários (soma ao cenário base)",
-    )
-    for nome in premissas.CENARIZAVEIS:
-        for cenario in ("pessimista", "otimista"):
-            deltas = dados["cenarios"][cenario].get(nome, [0.0] * len(anos))
-            aba.escrever(
-                f"{cenario}_{nome}",
-                f"{premissas.POR_ANO[nome]} - {NOME_CENARIO[cenario].lower()}",
-                dict(zip(colunas, deltas, strict=True)),
-                PCT,
-                entrada=True,
-            )
-    aba.pular()
+    def bloco(topo: int, ticker: str | None) -> None:
+        """Escreve um bloco: o de uma empresa (valores) ou o em uso (ticker None, fórmulas)."""
+        dados = todos[ticker] if ticker else None
 
-    aba.cabecalho(rotulos_anos, "Premissas em uso (o que a projeção lê)")
-    for nome, rotulo in premissas.POR_ANO.items():
-        if nome in premissas.CENARIZAVEIS:
+        def por(r: int, coluna: int, valor: Any, formato: str, origem: str = "") -> None:
+            if dados is None:
+                # Mesma posição, ALTURA linhas abaixo para cada empresa.
+                faixa = f"{L(coluna)}$1:{L(coluna)}${FIM_PREMISSAS}"
+                celula = ws.cell(r, coluna, f"=INDEX({faixa},ROW()+{ALTURA_PREMISSAS}*{EMP})")
+                celula.font = NEGRITO
+            else:
+                celula = ws.cell(r, coluna, valor)
+                celula.font, celula.fill = AZUL, FUNDO_ENTRADA
+                if origem:
+                    ws.cell(r, nota_col, origem).font = CINZA
+            celula.number_format = formato
 
-            def em_uso(c: int, nome: str = nome) -> str:
-                b, pe, ot = (
-                    aba.ref(f"{k}_{nome}", c).split("!")[1]
-                    for k in ("base", "pessimista", "otimista")
-                )
-                return f"={b}+CHOOSE({esc['cenario'].split('!')[1]},{pe},0,{ot})"
+        if ticker is None:
+            ws.cell(topo, 2, f'="EM USO: "&INDEX($L$5:$L${4 + len(TICKERS)},{EMP})').font = GRANDE
         else:
+            ws.cell(topo, 2, NOME_EMPRESA[ticker]).font = GRANDE
+        origem_col = "De onde veio" if dados else ""
 
-            def em_uso(c: int, nome: str = nome) -> str:
-                return "=" + aba.ref(f"base_{nome}", c).split("!")[1]
-
-        aba.escrever(nome, rotulo, em_uso, FORMATO_PREMISSA.get(nome, PCT))
-    aba.pular()
-
-    aba.cabecalho({COL_ANO1: "Valor", nota_col: "De onde veio"}, "Premissas gerais")
-    for nome, rotulo in premissas.ESCALARES.items():
-        aba.escrever(
-            nome,
-            rotulo,
-            {COL_ANO1: p[nome]["valor"]},
-            FORMATO_PREMISSA.get(nome, PCT),
-            entrada=True,
-            nota=p[nome]["origem"],
+        cabecalho(
+            topo + REL["cab_cenario"],
+            "Variáveis de cenário",
+            {
+                3: f"Partida {anos[0]}",
+                4: "Pessimista",
+                5: "Moderado",
+                6: "Otimista",
+                nota_col: origem_col,
+            },
         )
-        esc[nome] = _celula(ws, aba.linha[nome])
-    aba.pular()
+        for nome, rotulo in premissas.VARIAVEIS.items():
+            r = topo + REL[nome]
+            ws.cell(r, 2, rotulo)
+            cen = dados["cenarios"][nome] if dados else {}
+            formato = FORMATO_PREMISSA.get(nome, PCT)
+            if nome in premissas.COM_PARTIDA:
+                por(r, 3, cen.get("partida"), formato)
+            for coluna, chave in ((4, "pessimista"), (5, "moderado"), (6, "otimista")):
+                por(
+                    r, coluna, cen.get(chave), formato, cen.get("origem", "") if coluna == 4 else ""
+                )
 
-    aba.cabecalho({COL_ANO1: "Valor", nota_col: "Fonte"}, "Dados de mercado e datas")
-    ano1 = anos[0]
-    for nome, rotulo, valor, formato, nota in (
-        ("data_base", "Data-base do valuation", base.data_base, "DD/MM/YYYY", "Último ITR."),
-        (
-            "fracao_ano1",
-            f"Fração de {ano1} que ainda falta",
-            f"=(DATE({ano1},12,31)-{L(COL_ANO1)}{aba.proxima})/365",
-            "0.000",
-            f"Só essa parte do fluxo de {ano1} entra no valor.",
-        ),
-        (
-            "acoes",
-            "Ações em circulação (milhões)",
-            base.acoes,
-            "#,##0.0",
-            f"CVM, composição do capital em {mercado['data_acoes']}, sem tesouraria.",
-        ),
-        (
-            "preco",
-            "Preço da ação (R$)",
-            base.preco,
-            REAIS,
-            f"B3, fechamento de {mercado['data_preco']}.",
-        ),
-        (
-            "valor_de_mercado",
-            "Valor de mercado (R$ milhões)",
-            base.valor_de_mercado,
-            MI,
-            "Ações em circulação pelo preço de cada classe.",
-        ),
-    ):
-        aba.escrever(nome, rotulo, {COL_ANO1: valor}, formato, entrada=True, nota=nota)
-        esc[nome] = _celula(ws, aba.linha[nome])
+        cabecalho(
+            topo + REL["cab_ano"],
+            "Iguais nos três cenários, por ano",
+            {**{c: f"{a}E" for c, a in zip(colunas, anos, strict=True)}, nota_col: origem_col},
+        )
+        for nome, rotulo in premissas.POR_ANO.items():
+            r = topo + REL[nome]
+            ws.cell(r, 2, rotulo)
+            p = dados["premissas"][nome] if dados else {"valores": [None] * len(anos)}
+            for coluna, valor in zip(colunas, p["valores"], strict=True):
+                origem = p.get("origem", "") if coluna == colunas[0] else ""
+                por(r, coluna, valor, FORMATO_PREMISSA.get(nome, PCT), origem)
 
-    aba.larguras(rotulo=52, nota=90)
+        cabecalho(
+            topo + REL["cab_geral"],
+            "Iguais nos três cenários, gerais",
+            {4: "Valor", nota_col: origem_col},
+        )
+        for nome, rotulo in premissas.ESCALARES.items():
+            r = topo + REL[nome]
+            ws.cell(r, 2, rotulo)
+            p = dados["premissas"][nome] if dados else {}
+            por(r, 4, p.get("valor"), FORMATO_PREMISSA.get(nome, PCT), p.get("origem", ""))
+
+        cabecalho(
+            topo + REL["cab_mercado"],
+            "Dados de mercado e datas",
+            {4: "Valor", nota_col: origem_col},
+        )
+        base = dados["base"] if dados else None
+        do_mercado = mercado.loc[ticker] if ticker else None
+        linhas_mercado: tuple[tuple[str, str, Any, str, str], ...] = (
+            (
+                "data_base",
+                "Data-base do valuation",
+                base.data_base if base else None,
+                DATA,
+                "Último balanço trimestral (ITR).",
+            ),
+            (
+                "acoes",
+                "Ações em circulação (milhões)",
+                base.acoes if base else None,
+                "#,##0.0",
+                "CVM, composição do capital, sem ações em tesouraria.",
+            ),
+            (
+                "preco",
+                "Preço da ação (R$)",
+                base.preco if base else None,
+                REAIS,
+                "B3, último fechamento.",
+            ),
+            (
+                "valor_de_mercado",
+                "Valor de mercado (R$ milhões)",
+                base.valor_de_mercado if base else None,
+                MI,
+                "Ações em circulação pelo preço de cada classe.",
+            ),
+            (
+                "data_preco",
+                "Data do preço",
+                do_mercado["data_preco"] if do_mercado is not None else None,
+                "@",
+                "Pregão do preço acima.",
+            ),
+        )
+        for nome, rotulo, valor, formato, origem in linhas_mercado:
+            r = topo + REL[nome]
+            ws.cell(r, 2, rotulo)
+            por(r, 4, valor, formato, origem)
+
+    bloco(TOPO_PREMISSAS, None)
+    for i, ticker in enumerate(TICKERS, start=1):
+        bloco(TOPO_PREMISSAS + ALTURA_PREMISSAS * i, ticker)
+    # Nomes das empresas, para o título do bloco em uso.
+    ws.cell(4, 12, "Empresas").font = NEGRITO
+    for i, ticker in enumerate(TICKERS):
+        ws.cell(5 + i, 12, NOME_EMPRESA[ticker])
+
+    ws.column_dimensions["A"].width = 2
+    ws.column_dimensions["B"].width = 56
+    for c in range(3, nota_col):
+        ws.column_dimensions[L(c)].width = 13
+    ws.column_dimensions[L(nota_col)].width = 110
+    ws.column_dimensions["L"].width = 20
+    ws.sheet_view.showGridLines = False
     ws.freeze_panes = "C4"
-    return aba, esc
 
 
-# --------------------------------------------------------------------------- Histórico
+# --------------------------------------------------------------------------- Dados e Demonstrativos
 
-# (nome, rótulo, formato) das linhas que entram como dado da CVM.
-HIST_DADOS = (
-    ("Demonstração do resultado", None, None),
-    ("receita", "Receita líquida", MI),
-    ("custo", "Custo dos produtos vendidos", MI),
-    ("lucro_bruto", "Lucro bruto", MI),
-    ("despesas_vendas", "Despesas com vendas", MI),
-    ("despesas_ga", "Despesas gerais e administrativas", MI),
-    ("despesas_operacionais", "Total de despesas/receitas operacionais", MI),
-    ("equivalencia", "Equivalência patrimonial", MI),
-    ("ebit", "EBIT (resultado antes do financeiro e dos tributos)", MI),
-    ("resultado_financeiro", "Resultado financeiro", MI),
-    ("lair", "Lucro antes dos tributos", MI),
-    ("ir", "Imposto de renda e CSLL", MI),
-    ("lucro_liquido", "Lucro líquido consolidado", MI),
-    ("lucro_controladores", "Lucro atribuído aos controladores", MI),
-    ("Fluxo de caixa", None, None),
-    ("da", "Depreciação, amortização e exaustão", MI),
-    ("fco", "Caixa das atividades operacionais", MI),
-    ("capex", "Investimento em imobilizado e intangível (capex)", MI),
-    ("dividendos_pagos", "Dividendos e JCP pagos", MI),
-    ("Balanço patrimonial", None, None),
-    ("caixa", "Caixa e equivalentes", MI),
-    ("aplicacoes", "Aplicações financeiras", MI),
-    ("contas_receber", "Contas a receber", MI),
-    ("estoques", "Estoques", MI),
-    ("ativo_circulante", "Ativo circulante", MI),
-    ("investimentos", "Investimentos em coligadas", MI),
-    ("imobilizado", "Imobilizado", MI),
-    ("intangivel", "Intangível", MI),
-    ("ativo_total", "Ativo total", MI),
-    ("fornecedores", "Fornecedores", MI),
-    ("divida_cp", "Empréstimos e financiamentos - curto prazo", MI),
-    ("passivo_circulante", "Passivo circulante", MI),
-    ("divida_lp", "Empréstimos e financiamentos - longo prazo", MI),
-    ("patrimonio_liquido", "Patrimônio líquido consolidado", MI),
-    ("minoritarios", "Participação de não controladores", MI),
+# (nome, rótulo) das linhas que entram como dado da CVM; rótulo None abre uma seção.
+HIST_DADOS: tuple[tuple[str, str | None], ...] = (
+    ("Demonstração do resultado", None),
+    ("receita", "Receita líquida"),
+    ("custo", "Custo dos produtos vendidos"),
+    ("lucro_bruto", "Lucro bruto"),
+    ("despesas_vendas", "Despesas com vendas"),
+    ("despesas_ga", "Despesas gerais e administrativas"),
+    ("perdas_recuperabilidade", "Perdas por recuperabilidade de ativos (impairment)"),
+    ("despesas_operacionais", "Total de despesas/receitas operacionais"),
+    ("equivalencia", "Equivalência patrimonial"),
+    ("ebit", "EBIT (resultado antes do financeiro e dos tributos)"),
+    ("resultado_financeiro", "Resultado financeiro"),
+    ("lair", "Lucro antes dos tributos"),
+    ("ir", "Imposto de renda e CSLL"),
+    ("lucro_liquido", "Lucro líquido consolidado"),
+    ("lucro_controladores", "Lucro atribuído aos controladores"),
+    ("Fluxo de caixa", None),
+    ("da", "Depreciação, amortização e exaustão"),
+    ("fco", "Caixa das atividades operacionais"),
+    ("capex", "Investimento em imobilizado e intangível (capex)"),
+    ("dividendos_pagos", "Dividendos e JCP pagos"),
+    ("Balanço patrimonial", None),
+    ("caixa", "Caixa e equivalentes"),
+    ("aplicacoes", "Aplicações financeiras"),
+    ("contas_receber", "Contas a receber"),
+    ("estoques", "Estoques"),
+    ("ativo_circulante", "Ativo circulante"),
+    ("investimentos", "Investimentos em coligadas"),
+    ("imobilizado", "Imobilizado"),
+    ("intangivel", "Intangível"),
+    ("ativo_total", "Ativo total"),
+    ("fornecedores", "Fornecedores"),
+    ("divida_cp", "Empréstimos e financiamentos - curto prazo"),
+    ("passivo_circulante", "Passivo circulante"),
+    ("divida_lp", "Empréstimos e financiamentos - longo prazo"),
+    ("patrimonio_liquido", "Patrimônio líquido consolidado"),
+    ("minoritarios", "Participação de não controladores"),
 )
+LINHAS_DADOS = [nome for nome, rotulo in HIST_DADOS if rotulo is not None]
+TOPO_DADOS = 4
+ALTURA_DADOS = len(LINHAS_DADOS) + 3
 
 
-def _aba_historico(wb: Workbook, ticker: str, esc: dict[str, str]) -> tuple[Aba, int, int]:
-    """Dados da CVM e indicadores em fórmula. Devolve a aba e as colunas do ano-base e do LTM."""
+def _aba_dados(wb: Workbook) -> list[str]:
+    """Histórico da CVM das três empresas, um bloco embaixo do outro. Devolve os períodos."""
+    ws = wb.create_sheet("Dados")
     h = historico.carregar()
-    h = h[h["ticker"] == ticker].reset_index(drop=True)
-    colunas = list(range(3, 3 + len(h)))
-    aba = Aba(wb.create_sheet("Histórico"), colunas)
+    periodos = list(h[h["ticker"] == TICKERS[0]]["periodo"])
+    ws.cell(1, 2, "Dados da CVM").font = TITULO
+    ws.cell(
+        2,
+        2,
+        "Demonstrações consolidadas entregues à CVM (DFP e ITR), em R$ milhões. A aba "
+        "Demonstrativos mostra o bloco da empresa escolhida no Painel.",
+    ).font = CINZA
+    rotulos = dict(HIST_DADOS)
+    for k, ticker in enumerate(TICKERS):
+        topo = TOPO_DADOS + ALTURA_DADOS * k
+        da_empresa = h[h["ticker"] == ticker].reset_index(drop=True)
+        if list(da_empresa["periodo"]) != periodos:
+            raise ValueError(f"{ticker}: períodos diferentes dos de {TICKERS[0]}")
+        ws.cell(topo, 2, NOME_EMPRESA[ticker]).font = GRANDE
+        for j, periodo in enumerate(["R$ milhões", *periodos]):
+            celula = ws.cell(topo + 1, 2 + j, periodo)
+            celula.font, celula.fill = BRANCO, FUNDO_CABECALHO
+        for i, nome in enumerate(LINHAS_DADOS):
+            ws.cell(topo + 2 + i, 2, rotulos[nome])
+            for j, valor in enumerate(da_empresa[nome].round(3)):
+                ws.cell(topo + 2 + i, 3 + j, float(valor)).number_format = MI
+    ws.column_dimensions["A"].width = 2
+    ws.column_dimensions["B"].width = 52
+    for c in range(3, 3 + len(periodos)):
+        ws.column_dimensions[L(c)].width = 13
+    ws.sheet_view.showGridLines = False
+    return periodos
+
+
+def _aba_demonstrativos(wb: Workbook, periodos: list[str]) -> tuple[Aba, int, int]:
+    """Histórico da empresa escolhida e os indicadores, em fórmula."""
+    colunas = list(range(3, 3 + len(periodos)))
+    aba = Aba(wb.create_sheet("Demonstrativos"), colunas)
     aba.titulo(
-        f"Histórico - {empresa(ticker).nome}",
-        "Fonte: demonstrações consolidadas entregues à CVM (DFP e ITR). "
-        "LTM = últimos doze meses; o balanço é o do trimestre.",
+        "Demonstrativos",
+        "DRE, fluxo de caixa e balanço da empresa escolhida no Painel, e os indicadores que saem "
+        "deles. LTM = últimos doze meses; o balanço dessa coluna é o do trimestre.",
     )
-    aba.cabecalho(dict(zip(colunas, h["periodo"], strict=True)))
-    for nome, rotulo, formato in HIST_DADOS:
+    _titulo_com_empresa(aba.ws, "Demonstrativos")
+    aba.cabecalho({**dict(zip(colunas, periodos, strict=True)), **_explicacao(aba, "O que é")})
+    fim = TOPO_DADOS + ALTURA_DADOS * len(TICKERS)
+
+    def do_bloco(indice: int) -> Formula:
+        linha_no_bloco = TOPO_DADOS + 2 + indice
+        return lambda c: (
+            f"=INDEX('Dados'!{L(c)}$1:{L(c)}${fim},{linha_no_bloco}+{ALTURA_DADOS}*({EMP}-1))"
+        )
+
+    for nome, rotulo in HIST_DADOS:
         if rotulo is None:
             aba.secao(nome)
             continue
-        aba.escrever(nome, rotulo, dict(zip(colunas, h[nome].round(3), strict=True)), formato)
+        aba.escrever(nome, rotulo, do_bloco(LINHAS_DADOS.index(nome)), nota=LINHAS.get(nome, ""))
 
     def x(nome: str, c: int) -> str:
         return f"{L(c)}{aba.linha[nome]}"
@@ -364,10 +493,21 @@ def _aba_historico(wb: Workbook, ticker: str, esc: dict[str, str]) -> tuple[Aba,
     def ant(nome: str, c: int) -> str | None:
         return x(nome, c - 1) if c > colunas[0] else None
 
-    ir = esc["aliquota_ir"]
-    aba.secao("Indicadores (fórmulas)")
+    # No histórico vale a alíquota nominal, igual para todas: o passado não pode mudar
+    # quando alguém troca a alíquota da projeção na aba Premissas.
+    ir = historico.ALIQUOTA_IR
+    aba.pular()
+    aba.cabecalho(
+        {**dict(zip(colunas, periodos, strict=True)), **_explicacao(aba)}, "Indicadores (fórmulas)"
+    )
     indicadores: tuple[tuple[str, str, Formula, str], ...] = (
         ("ebitda", "EBITDA (EBIT + depreciação)", lambda c: f"={x('ebit', c)}+{x('da', c)}", MI),
+        (
+            "ebitda_recorrente",
+            "EBITDA sem perdas por recuperabilidade",
+            lambda c: f"={x('ebitda', c)}-{x('perdas_recuperabilidade', c)}",
+            MI,
+        ),
         (
             "custo_caixa",
             "Custo caixa (custo sem depreciação)",
@@ -385,7 +525,7 @@ def _aba_historico(wb: Workbook, ticker: str, esc: dict[str, str]) -> tuple[Aba,
         ),
         (
             "nopat",
-            "NOPAT (lucro operacional após imposto)",
+            "NOPAT (lucro operacional após imposto de 34%)",
             lambda c: f"=({x('ebit', c)}-{x('equivalencia', c)})*(1-{ir})",
             MI,
         ),
@@ -402,17 +542,17 @@ def _aba_historico(wb: Workbook, ticker: str, esc: dict[str, str]) -> tuple[Aba,
             PCT,
         ),
         ("margem_ebitda", "Margem EBITDA", lambda c: f"={x('ebitda', c)}/{x('receita', c)}", PCT),
+        (
+            "margem_ebitda_recorrente",
+            "Margem EBITDA sem perdas por recuperabilidade",
+            lambda c: f"={x('ebitda_recorrente', c)}/{x('receita', c)}",
+            PCT,
+        ),
         ("margem_ebit", "Margem EBIT", lambda c: f"={x('ebit', c)}/{x('receita', c)}", PCT),
         (
             "margem_liquida",
             "Margem líquida",
             lambda c: f"={x('lucro_liquido', c)}/{x('receita', c)}",
-            PCT,
-        ),
-        (
-            "outras_pct",
-            "Outras operacionais / receita",
-            lambda c: f"={x('outras_operacionais', c)}/{x('receita', c)}",
             PCT,
         ),
         ("capex_pct", "Capex / receita", lambda c: f"={x('capex', c)}/{x('receita', c)}", PCT),
@@ -520,41 +660,42 @@ def _aba_historico(wb: Workbook, ticker: str, esc: dict[str, str]) -> tuple[Aba,
     )
     aba.planejar([nome for nome, *_ in indicadores])
     for nome, rotulo, formula, formato in indicadores:
-        aba.escrever(nome, rotulo, formula, formato)
+        aba.escrever(nome, rotulo, formula, formato, nota=LINHAS.get(nome, ""))
 
-    aba.larguras(rotulo=58, nota=4)
+    aba.larguras(rotulo=58)
     aba.ws.freeze_panes = "C5"
-    ano_base = colunas[list(h["periodo"]).index("2025")]
-    ltm = colunas[-1]
-    return aba, ano_base, ltm
+    return aba, colunas[periodos.index("2025")], colunas[-1]
 
 
-# --------------------------------------------------------------------------- Projeção
+# --------------------------------------------------------------------------- Projeção e FCFF
+
+LINHAS_FCFF: list[str | None] = [
+    "s_fcff", "ebit", "equivalencia", "imposto", "nopat", "da", "capex", "variacao_giro", "fcff",
+    None,
+    "s_fcfe", "lucro_liquido", "equivalencia_e", "da_e", "capex_e", "variacao_giro_e", "captacao",
+    "fcfe",
+    None,
+    "s_terminal", "capex_terminal", "fcff_terminal", "fcfe_terminal",
+]  # fmt: skip
 
 
-def _aba_projecao(
-    wb: Workbook, dados: dict[str, Any], prem: Aba, esc: dict[str, str], hist: Aba, col_hist: int
-) -> Aba:
-    anos: list[int] = dados["anos"]
+def _aba_projecao(wb: Workbook, anos: list[int], hist: Aba, col_hist: int, fcff: Aba) -> Aba:
     proj_cols = list(range(COL_ANO1, COL_ANO1 + len(anos)))
     aba = Aba(wb.create_sheet("Projeção"), [COL_BASE, *proj_cols])
     aba.titulo(
-        f"Projeção - {dados['empresa']}",
-        "DRE, balanço e fluxo de caixa ligados. Custos e despesas em valor positivo. "
-        f"{dados['ano_base']} é o realizado; os demais anos são fórmulas sobre as premissas.",
+        "Projeção",
+        "DRE, investimento, capital de giro e balanço, ligados entre si. Custos e despesas em "
+        "valor positivo. 2025 é o realizado; os outros anos são fórmulas.",
     )
-    aba.cabecalho(
-        {COL_BASE: dados["ano_base"], **{c: f"{a}E" for c, a in zip(proj_cols, anos, strict=True)}}
-    )
+    _titulo_com_empresa(aba.ws, "Projeção")
+    anos_cab = {COL_BASE: anos[0] - 1, **{c: f"{a}E" for c, a in zip(proj_cols, anos, strict=True)}}
+    aba.cabecalho({**anos_cab, **_explicacao(aba, "Como se calcula")})
 
     def x(nome: str, c: int) -> str:
         return f"{L(c)}{aba.linha[nome]}"
 
     def a(nome: str, c: int) -> str:  # ano anterior
         return x(nome, c - 1)
-
-    def p(nome: str, c: int) -> str:
-        return prem.ref(nome, c)
 
     def h(nome: str) -> str:
         return hist.ref(nome, col_hist)
@@ -573,20 +714,21 @@ def _aba_projecao(
             lambda c: base if c == COL_BASE else formula(c),
             formato,
             destaque=destaque,
+            nota=LINHAS.get(f"p_{nome}", ""),
         )
 
-    ir = esc["aliquota_ir"]
+    passos = len(anos) - 1
     estrutura: list[str | None] = [
-        "s_dre", "receita", "custo_caixa", "despesas_vendas", "despesas_ga", "outras_operacionais",
-        "equivalencia", "ebitda", "da", "ebit", "resultado_financeiro", "lair", "ir",
-        "lucro_liquido", "nopat", None,
+        "s_cen", "crescimento", "margem", None,
+        "s_dre", "receita", "custo_caixa", "despesas", "equivalencia", "ebitda", "da", "ebit",
+        "receita_financeira", "despesa_financeira", "resultado_financeiro", "lair", "ir",
+        "lucro_liquido", None,
         "s_inv", "capex", "ativo_fixo", "contas_receber", "estoques", "fornecedores",
         "capital_de_giro", "variacao_giro", None,
-        "s_fc", "fcff", "captacao_liquida", "fcfe", "dividendos", "variacao_caixa", None,
+        "s_cx", "dividendos", "variacao_caixa", None,
         "s_bp", "caixa_total", "investimentos", "outros_ativos", "ativo_total", "divida_bruta",
         "outros_passivos", "patrimonio_liquido", "passivo_e_pl", "checagem_balanco", None,
-        "s_ind", "crescimento_receita", "margem_ebitda", "margem_ebit", "divida_liquida",
-        "divida_liquida_ebitda", "roic",
+        "s_ind", "margem_ebit", "divida_liquida", "divida_liquida_ebitda", "roic",
     ]  # fmt: skip
     aba.planejar(estrutura)
 
@@ -594,72 +736,85 @@ def _aba_projecao(
         aba.proxima = aba.linha[nome]
         aba.secao(texto)
 
+    secao("s_cen", "Do cenário para cada ano (vem do Painel)")
+    partida_crescimento, partida_margem = P("crescimento_receita", 3), P("margem_ebitda", 3)
+    linha(
+        "crescimento",
+        "Crescimento da receita",
+        None,
+        lambda c: "=" + (partida_crescimento if c == proj_cols[0] else USO["crescimento_receita"]),
+        PCT,
+    )
+    linha(
+        "margem",
+        "Margem EBITDA",
+        None,
+        lambda c: (
+            f"={partida_margem}+({USO['margem_ebitda']}-{partida_margem})"
+            f"*{c - proj_cols[0]}/{passos}"
+        ),
+        PCT,
+    )
+
     secao("s_dre", "Demonstração do resultado")
     linha(
         "receita",
         "Receita líquida",
         f"={h('receita')}",
-        lambda c: (
-            f"={a('receita', c)}*(1+{p('crescimento_volume', c)})*(1+{p('variacao_preco', c)})"
-        ),
+        lambda c: f"={a('receita', c)}*(1+{x('crescimento', c)})",
         destaque=True,
     )
     linha(
         "custo_caixa",
-        "(-) Custo caixa (sem depreciação)",
+        "(-) Custo dos produtos (sem depreciação)",
         f"=-{h('custo_caixa')}",
-        lambda c: (
-            f"={a('custo_caixa', c)}*(1+{p('crescimento_volume', c)})*(1+{p('inflacao_custos', c)})"
-        ),
+        lambda c: f"={x('receita', c)}-{x('despesas', c)}+{x('equivalencia', c)}-{x('ebitda', c)}",
     )
     linha(
-        "despesas_vendas",
-        "(-) Despesas com vendas",
-        f"=-{h('despesas_vendas')}",
-        lambda c: (
-            f"={a('despesas_vendas', c)}*(1+{p('crescimento_volume', c)})"
-            f"*(1+{p('inflacao_custos', c)})"
-        ),
-    )
-    linha(
-        "despesas_ga",
-        "(-) Despesas gerais e administrativas",
-        f"=-{h('despesas_ga')}",
-        lambda c: f"={a('despesas_ga', c)}*(1+{p('inflacao_custos', c)})",
-    )
-    linha(
-        "outras_operacionais",
-        "(+/-) Outras receitas/despesas operacionais",
-        f"={h('outras_operacionais')}",
-        lambda c: f"={x('receita', c)}*{p('outras_pct', c)}",
+        "despesas",
+        "(-) Despesas operacionais (vendas, administrativas e outras)",
+        f"=-({h('despesas_vendas')}+{h('despesas_ga')}+{h('outras_operacionais')})",
+        lambda c: f"={x('receita', c)}*{P('despesas_pct', c)}",
     )
     linha(
         "equivalencia",
         "(+/-) Equivalência patrimonial",
         f"={h('equivalencia')}",
-        lambda c: f"={p('equivalencia', c)}",
+        lambda c: f"={P('equivalencia', c)}",
     )
-    ebitda: Formula = lambda c: (  # noqa: E731
-        f"={x('receita', c)}-{x('custo_caixa', c)}-{x('despesas_vendas', c)}"
-        f"-{x('despesas_ga', c)}+{x('outras_operacionais', c)}+{x('equivalencia', c)}"
+    linha(
+        "ebitda",
+        "EBITDA",
+        f"={x('receita', COL_BASE)}-{x('custo_caixa', COL_BASE)}-{x('despesas', COL_BASE)}"
+        f"+{x('equivalencia', COL_BASE)}",
+        lambda c: f"={x('receita', c)}*{x('margem', c)}",
+        destaque=True,
     )
-    linha("ebitda", "EBITDA", ebitda(COL_BASE), ebitda, destaque=True)
     linha(
         "da",
         "(-) Depreciação e amortização",
         f"={h('da')}",
-        lambda c: f"={a('ativo_fixo', c)}*{p('depreciacao_pct', c)}",
+        lambda c: f"={a('ativo_fixo', c)}*{P('depreciacao_pct', c)}",
     )
     ebit: Formula = lambda c: f"={x('ebitda', c)}-{x('da', c)}"  # noqa: E731
     linha("ebit", "EBIT", ebit(COL_BASE), ebit, destaque=True)
     linha(
+        "receita_financeira",
+        "(+) Rendimento do caixa",
+        None,
+        lambda c: f"={a('caixa_total', c)}*{P('rendimento_caixa')}",
+    )
+    linha(
+        "despesa_financeira",
+        "(-) Juros da dívida",
+        None,
+        lambda c: f"={a('divida_bruta', c)}*{P('custo_divida')}",
+    )
+    linha(
         "resultado_financeiro",
         "(+/-) Resultado financeiro",
         f"={h('resultado_financeiro')}",
-        lambda c: (
-            f"={a('caixa_total', c)}*{esc['rendimento_caixa']}"
-            f"-{a('divida_bruta', c)}*{esc['custo_divida']}"
-        ),
+        lambda c: f"={x('receita_financeira', c)}-{x('despesa_financeira', c)}",
     )
     lair: Formula = lambda c: f"={x('ebit', c)}+{x('resultado_financeiro', c)}"  # noqa: E731
     linha("lair", "Lucro antes dos tributos", lair(COL_BASE), lair)
@@ -667,15 +822,13 @@ def _aba_projecao(
         "ir",
         "(-) Imposto de renda e CSLL",
         f"=-{h('ir')}",
-        lambda c: f"=MAX(0,{x('lair', c)}-{x('equivalencia', c)})*{ir}",
+        lambda c: f"=MAX(0,{x('lair', c)}-{x('equivalencia', c)})*{P('aliquota_ir')}",
     )
     lucro: Formula = lambda c: f"={x('lair', c)}-{x('ir', c)}"  # noqa: E731
     linha("lucro_liquido", "Lucro líquido", lucro(COL_BASE), lucro, destaque=True)
-    nopat: Formula = lambda c: f"=({x('ebit', c)}-{x('equivalencia', c)})*(1-{ir})"  # noqa: E731
-    linha("nopat", "NOPAT (EBIT sem equivalência, após imposto)", nopat(COL_BASE), nopat)
 
     secao("s_inv", "Investimento, depreciação e capital de giro")
-    linha("capex", "Capex", f"={h('capex')}", lambda c: f"={x('receita', c)}*{p('capex_pct', c)}")
+    linha("capex", "Capex", f"={h('capex')}", lambda c: f"={x('receita', c)}*{P('capex_pct', c)}")
     linha(
         "ativo_fixo",
         "Ativo fixo (imobilizado + intangível)",
@@ -686,19 +839,19 @@ def _aba_projecao(
         "contas_receber",
         "Contas a receber",
         f"={h('contas_receber')}",
-        lambda c: f"={x('receita', c)}*{p('prazo_recebimento', c)}/365",
+        lambda c: f"={x('receita', c)}*{P('prazo_recebimento', c)}/365",
     )
     linha(
         "estoques",
         "Estoques",
         f"={h('estoques')}",
-        lambda c: f"={x('custo_caixa', c)}*{p('prazo_estoque', c)}/365",
+        lambda c: f"={x('custo_caixa', c)}*{P('prazo_estoque', c)}/365",
     )
     linha(
         "fornecedores",
         "Fornecedores",
         f"={h('fornecedores')}",
-        lambda c: f"={x('custo_caixa', c)}*{p('prazo_pagamento', c)}/365",
+        lambda c: f"={x('custo_caixa', c)}*{P('prazo_pagamento', c)}/365",
     )
     giro: Formula = lambda c: (  # noqa: E731
         f"={x('contas_receber', c)}+{x('estoques', c)}-{x('fornecedores', c)}"
@@ -711,41 +864,18 @@ def _aba_projecao(
         lambda c: f"={x('capital_de_giro', c)}-{a('capital_de_giro', c)}",
     )
 
-    secao("s_fc", "Fluxos de caixa livres")
-    linha(
-        "fcff",
-        "FCFF - fluxo de caixa livre da empresa",
-        None,
-        lambda c: f"={x('nopat', c)}+{x('da', c)}-{x('capex', c)}-{x('variacao_giro', c)}",
-        destaque=True,
-    )
-    linha(
-        "captacao_liquida",
-        "(+) Captação líquida de dívida",
-        None,
-        lambda c: f"={p('captacao_liquida', c)}",
-    )
-    linha(
-        "fcfe",
-        "FCFE - fluxo de caixa livre do acionista",
-        None,
-        lambda c: (
-            f"={x('lucro_liquido', c)}-{x('equivalencia', c)}+{x('da', c)}-{x('capex', c)}"
-            f"-{x('variacao_giro', c)}+{x('captacao_liquida', c)}"
-        ),
-        destaque=True,
-    )
+    secao("s_cx", "Do lucro ao caixa")
     linha(
         "dividendos",
         "(-) Dividendos",
         None,
-        lambda c: f"=MAX(0,{x('lucro_liquido', c)})*{esc['payout']}",
+        lambda c: f"=MAX(0,{x('lucro_liquido', c)})*{P('payout')}",
     )
     linha(
         "variacao_caixa",
-        "Variação do caixa",
+        "Variação do caixa (FCFE da aba FCFF menos dividendos)",
         None,
-        lambda c: f"={x('fcfe', c)}-{x('dividendos', c)}",
+        lambda c: f"={fcff.ref('fcfe', c)}-{x('dividendos', c)}",
     )
 
     secao("s_bp", "Balanço patrimonial resumido")
@@ -777,7 +907,7 @@ def _aba_projecao(
         "divida_bruta",
         "Dívida bruta",
         f"={h('divida_bruta')}",
-        lambda c: f"={a('divida_bruta', c)}+{x('captacao_liquida', c)}",
+        lambda c: f"={a('divida_bruta', c)}+{P('captacao_liquida', c)}",
     )
     linha(
         "outros_passivos",
@@ -806,15 +936,6 @@ def _aba_projecao(
     )
 
     secao("s_ind", "Indicadores")
-    linha(
-        "crescimento_receita",
-        "Crescimento da receita",
-        None,
-        lambda c: f"={x('receita', c)}/{a('receita', c)}-1",
-        PCT,
-    )
-    margem: Formula = lambda c: f"={x('ebitda', c)}/{x('receita', c)}"  # noqa: E731
-    linha("margem_ebitda", "Margem EBITDA", margem(COL_BASE), margem, PCT)
     margem_ebit: Formula = lambda c: f"={x('ebit', c)}/{x('receita', c)}"  # noqa: E731
     linha("margem_ebit", "Margem EBIT", margem_ebit(COL_BASE), margem_ebit, PCT)
     dl: Formula = lambda c: f"={x('divida_bruta', c)}-{x('caixa_total', c)}"  # noqa: E731
@@ -825,71 +946,195 @@ def _aba_projecao(
         "roic",
         "ROIC (NOPAT / capital investido inicial)",
         None,
-        lambda c: f"={x('nopat', c)}/({a('capital_de_giro', c)}+{a('ativo_fixo', c)})",
+        lambda c: f"={fcff.ref('nopat', c)}/({a('capital_de_giro', c)}+{a('ativo_fixo', c)})",
         PCT,
     )
 
-    aba.larguras(rotulo=52, nota=4)
+    aba.larguras(rotulo=56)
     aba.ws.freeze_panes = "C5"
     return aba
 
 
-# --------------------------------------------------------------------------- WACC e DCF
+def _aba_fcff(aba: Aba, anos: list[int], proj: Aba) -> None:
+    """Preenche a aba FCFF, cujas linhas já foram reservadas para a Projeção poder apontar."""
+    ultimo = aba.colunas[-1]
+
+    def x(nome: str, c: int) -> str:
+        return f"{L(c)}{aba.linha[nome]}"
+
+    def pr(nome: str, c: int) -> str:
+        return proj.ref(nome, c)
+
+    def linha(nome: str, rotulo: str, formula: Formula, chave: str, destaque: bool = False) -> None:
+        aba.escrever(nome, rotulo, formula, destaque=destaque, nota=LINHAS[chave])
+
+    def unico(nome: str, rotulo: str, formula: str, chave: str, destaque: bool = False) -> None:
+        aba.escrever(nome, rotulo, {COL_ANO1: formula}, destaque=destaque, nota=LINHAS[chave])
+
+    def secao(nome: str, texto: str) -> None:
+        aba.proxima = aba.linha[nome]
+        aba.secao(texto)
+
+    secao("s_fcff", "FCFF: o caixa livre da empresa, para credores e acionistas")
+    linha("ebit", "EBIT", lambda c: f"={pr('ebit', c)}", "f_ebit")
+    linha(
+        "equivalencia",
+        "(-) Equivalência patrimonial",
+        lambda c: f"={pr('equivalencia', c)}",
+        "f_equivalencia",
+    )
+    linha(
+        "imposto",
+        "(-) Imposto sobre o lucro da operação",
+        lambda c: f"=({x('ebit', c)}-{x('equivalencia', c)})*{P('aliquota_ir')}",
+        "f_imposto",
+    )
+    linha(
+        "nopat",
+        "(=) NOPAT",
+        lambda c: f"={x('ebit', c)}-{x('equivalencia', c)}-{x('imposto', c)}",
+        "f_nopat",
+        destaque=True,
+    )
+    linha("da", "(+) Depreciação e amortização", lambda c: f"={pr('da', c)}", "f_da")
+    linha("capex", "(-) Capex", lambda c: f"={pr('capex', c)}", "f_capex")
+    linha(
+        "variacao_giro",
+        "(-) Variação do capital de giro",
+        lambda c: f"={pr('variacao_giro', c)}",
+        "f_variacao_giro",
+    )
+    linha(
+        "fcff",
+        "(=) FCFF",
+        lambda c: f"={x('nopat', c)}+{x('da', c)}-{x('capex', c)}-{x('variacao_giro', c)}",
+        "f_fcff",
+        destaque=True,
+    )
+    for c in aba.colunas:
+        aba.ws.cell(aba.linha["fcff"], c).fill = FUNDO_RESULTADO
+
+    secao("s_fcfe", "FCFE: o caixa livre só do acionista")
+    linha(
+        "lucro_liquido", "Lucro líquido", lambda c: f"={pr('lucro_liquido', c)}", "f_lucro_liquido"
+    )
+    linha(
+        "equivalencia_e",
+        "(-) Equivalência patrimonial",
+        lambda c: f"={pr('equivalencia', c)}",
+        "f_equivalencia",
+    )
+    linha("da_e", "(+) Depreciação e amortização", lambda c: f"={pr('da', c)}", "f_da")
+    linha("capex_e", "(-) Capex", lambda c: f"={pr('capex', c)}", "f_capex")
+    linha(
+        "variacao_giro_e",
+        "(-) Variação do capital de giro",
+        lambda c: f"={pr('variacao_giro', c)}",
+        "f_variacao_giro",
+    )
+    linha(
+        "captacao",
+        "(+) Captação líquida de dívida",
+        lambda c: f"={P('captacao_liquida', c)}",
+        "f_captacao",
+    )
+    linha(
+        "fcfe",
+        "(=) FCFE",
+        lambda c: (
+            f"={x('lucro_liquido', c)}-{x('equivalencia_e', c)}+{x('da_e', c)}-{x('capex_e', c)}"
+            f"-{x('variacao_giro_e', c)}+{x('captacao', c)}"
+        ),
+        "f_fcfe",
+        destaque=True,
+    )
+
+    secao("s_terminal", f"Fluxo de {anos[-1]} ajustado para a perpetuidade")
+    unico(
+        "capex_terminal",
+        "Capex de reposição",
+        f"={P('capex_perpetuidade')}*{x('da', ultimo)}",
+        "f_capex_terminal",
+    )
+    unico(
+        "fcff_terminal",
+        f"FCFF normalizado de {anos[-1]}",
+        f"={x('nopat', ultimo)}+{x('da', ultimo)}-{x('capex_terminal', COL_ANO1)}"
+        f"-{x('variacao_giro', ultimo)}",
+        "f_fcff_terminal",
+        destaque=True,
+    )
+    unico(
+        "fcfe_terminal",
+        f"FCFE normalizado de {anos[-1]}",
+        f"={x('lucro_liquido', ultimo)}-{x('equivalencia_e', ultimo)}+{x('da_e', ultimo)}"
+        f"-{x('capex_terminal', COL_ANO1)}-{x('variacao_giro_e', ultimo)}+{x('captacao', ultimo)}",
+        "f_fcfe_terminal",
+    )
+    aba.larguras(rotulo=52)
+    aba.ws.freeze_panes = "C5"
 
 
-def _aba_wacc(wb: Workbook, esc: dict[str, str], hist: Aba, col_ltm: int) -> dict[str, str]:
+# --------------------------------------------------------------------------- WACC e valor justo
+
+
+def _aba_wacc(wb: Workbook, hist: Aba, col_ltm: int) -> Aba:
     aba = Aba(wb.create_sheet("WACC"), [COL_ANO1])
-    ws = aba.ws
     aba.titulo(
         "Custo de capital",
         "CAPM para o capital próprio; WACC é a média com o custo da dívida depois do imposto.",
     )
-    nota = COL_ANO1 + 1
+    _titulo_com_empresa(aba.ws, "Custo de capital")
 
     def x(nome: str) -> str:
         return f"{L(COL_ANO1)}{aba.linha[nome]}"
 
-    def linha(nome: str, rotulo: str, formula: str, formato: str = PCT, **kw: Any) -> None:
-        aba.escrever(nome, rotulo, {COL_ANO1: formula}, formato, **kw)
+    def linha(
+        nome: str, rotulo: str, formula: str, formato: str = PCT2, destaque: bool = False
+    ) -> None:
+        aba.escrever(
+            nome, rotulo, {COL_ANO1: formula}, formato, destaque=destaque, nota=LINHAS[f"w_{nome}"]
+        )
 
-    aba.cabecalho({COL_ANO1: "Valor", nota: "Conta"}, "Capital próprio (CAPM)")
-    linha("rf", "Juro sem risco (Rf)", f"={esc['juro_sem_risco']}")
-    linha("beta", "Beta", f"={esc['beta']}", DEC)
-    linha("premio", "Prêmio de risco de mercado", f"={esc['premio_mercado']}")
-    linha("adicional", "Prêmio adicional", f"={esc['premio_adicional']}")
+    aba.cabecalho({COL_ANO1: "Valor", **_explicacao(aba)}, "Capital próprio (CAPM)")
+    linha("rf", "Juro sem risco (Rf)", f"={P('juro_sem_risco')}")
+    linha("beta", "Beta", f"={P('beta')}", DEC)
+    linha("premio", "Prêmio de risco de mercado", f"={P('premio_mercado')}")
+    linha("adicional", "Prêmio adicional", f"={P('premio_adicional')}")
     linha(
         "ke",
         "Custo do capital próprio (Ke)",
         f"={x('rf')}+{x('beta')}*{x('premio')}+{x('adicional')}",
         destaque=True,
-        nota="Ke = Rf + beta x prêmio de mercado + prêmio adicional",
     )
     aba.pular()
-    aba.cabecalho({COL_ANO1: "Valor", nota: "Conta"}, "Dívida")
-    linha("kd", "Custo da dívida antes do imposto (Kd)", f"={esc['custo_divida']}")
-    linha("ir", "Alíquota de IR e CSLL", f"={esc['aliquota_ir']}")
+    aba.cabecalho({COL_ANO1: "Valor", **_explicacao(aba)}, "Dívida")
+    linha("kd", "Custo da dívida antes do imposto (Kd)", f"={P('custo_divida')}")
+    linha("ir", "Alíquota de IR e CSLL", f"={P('aliquota_ir')}")
     linha(
-        "kd_liquido",
-        "Custo da dívida após o imposto",
-        f"={x('kd')}*(1-{x('ir')})",
-        destaque=True,
-        nota="Juro é dedutível: Kd x (1 - alíquota)",
+        "kd_liquido", "Custo da dívida após o imposto", f"={x('kd')}*(1-{x('ir')})", destaque=True
     )
     aba.pular()
-    aba.cabecalho({COL_ANO1: "Valor", nota: "Conta"}, "Média ponderada")
-    linha("wd", "Peso da dívida", f"={esc['peso_divida']}")
+    aba.cabecalho({COL_ANO1: "Valor", **_explicacao(aba)}, "Média ponderada")
+    linha("wd", "Peso da dívida", f"={P('peso_divida')}")
     linha("we", "Peso do capital próprio", f"=1-{x('wd')}")
     linha(
         "wacc",
-        "WACC",
+        "WACC pelo CAPM",
         f"={x('ke')}*{x('we')}+{x('kd_liquido')}*{x('wd')}",
         destaque=True,
-        nota="WACC = Ke x peso do capital próprio + Kd após imposto x peso da dívida",
     )
-    ws.cell(aba.linha["wacc"], COL_ANO1).fill = FUNDO_RESULTADO
     aba.pular()
-    aba.cabecalho({COL_ANO1: "Valor", nota: "Conta"}, "Referência: estrutura a valor de mercado")
-    linha("mercado", "Valor de mercado (R$ milhões)", f"={esc['valor_de_mercado']}", MI)
+    aba.cabecalho({COL_ANO1: "Valor", **_explicacao(aba)}, "Cenário (vem do Painel)")
+    linha("wacc_uso", "WACC em uso", f"={USO['wacc']}", destaque=True)
+    linha("ajuste", "Diferença para o CAPM", f"={x('wacc_uso')}-{x('wacc')}")
+    linha("ke_uso", "Ke em uso", f"={x('ke')}+{x('ajuste')}")
+    aba.ws.cell(aba.linha["wacc_uso"], COL_ANO1).fill = FUNDO_RESULTADO
+    aba.pular()
+    aba.cabecalho(
+        {COL_ANO1: "Valor", **_explicacao(aba)}, "Referência: estrutura a valor de mercado"
+    )
+    linha("mercado", "Valor de mercado (R$ milhões)", f"={P('valor_de_mercado')}", MI)
     linha(
         "divida",
         "Dívida bruta na data-base (R$ milhões)",
@@ -900,31 +1145,25 @@ def _aba_wacc(wb: Workbook, esc: dict[str, str], hist: Aba, col_ltm: int) -> dic
         "wd_mercado",
         "Peso da dívida a valor de mercado",
         f"={x('divida')}/({x('divida')}+{x('mercado')})",
-        nota="Compare com o peso usado acima.",
     )
-    aba.larguras(rotulo=44, numeros=14, nota=70)
-    return {k: _celula(ws, aba.linha[k]) for k in ("ke", "wacc")}
+    aba.larguras(rotulo=44, numeros=14)
+    return aba
 
 
-def _aba_dcf(
-    wb: Workbook,
-    dados: dict[str, Any],
-    esc: dict[str, str],
-    taxas: dict[str, str],
-    proj: Aba,
-    hist: Aba,
-    col_ltm: int,
-) -> tuple[Aba, dict[str, str]]:
-    anos: list[int] = dados["anos"]
+def _aba_valor(
+    wb: Workbook, anos: list[int], wacc: Aba, fcff: Aba, proj: Aba, hist: Aba, col_ltm: int
+) -> Aba:
     cols = list(range(COL_ANO1, COL_ANO1 + len(anos)))
     ultimo = cols[-1]
-    aba = Aba(wb.create_sheet("DCF"), cols)
+    aba = Aba(wb.create_sheet("Valor justo"), cols)
     ws = aba.ws
     aba.titulo(
-        f"Fluxo de caixa descontado - {dados['empresa']}",
-        "O valor da empresa é a soma dos fluxos de caixa futuros trazidos a valor de hoje.",
+        "Valor justo",
+        "Os fluxos de caixa trazidos a valor de hoje, o valor da empresa, o valor do acionista e "
+        "o preço por ação.",
     )
-    aba.cabecalho({c: f"{a}E" for c, a in zip(cols, anos, strict=True)})
+    _titulo_com_empresa(ws, "Valor justo")
+    aba.cabecalho({**{c: f"{a}E" for c, a in zip(cols, anos, strict=True)}, **_explicacao(aba)})
 
     def x(nome: str, c: int = COL_ANO1) -> str:
         return f"{L(c)}{aba.linha[nome]}"
@@ -936,30 +1175,44 @@ def _aba_dcf(
         r = aba.linha[nome]
         return f"${L(cols[0])}${r}:${L(ultimo)}${r}"
 
-    wacc, ke, g = taxas["wacc"], taxas["ke"], esc["crescimento_perpetuo"]
+    def por_ano(
+        nome: str, rotulo: str, formula: Formula, formato: str = MI, destaque: bool = False
+    ) -> None:
+        aba.escrever(nome, rotulo, formula, formato, destaque=destaque, nota=LINHAS[f"v_{nome}"])
+
+    def unico(
+        nome: str, rotulo: str, formula: str, formato: str = MI, destaque: bool = False
+    ) -> None:
+        aba.escrever(
+            nome, rotulo, {COL_ANO1: formula}, formato, destaque=destaque, nota=LINHAS[f"v_{nome}"]
+        )
+
+    wacc_uso = wacc.ref("wacc_uso", COL_ANO1, fixa=True)
+    ke_uso = wacc.ref("ke_uso", COL_ANO1, fixa=True)
+    ano1 = anos[0]
 
     aba.secao("Fluxo da empresa (FCFF), descontado pelo WACC")
-    aba.escrever("fcff", "FCFF", lambda c: f"={proj.ref('fcff', c)}", destaque=True)
-    aba.escrever(
+    por_ano("fcff", "FCFF", lambda c: f"={fcff.ref('fcff', c)}", destaque=True)
+    por_ano(
         "fracao",
         "Parte do ano que entra no valor",
-        lambda c: f"={esc['fracao_ano1']}" if c == cols[0] else 1,
+        lambda c: f"=(DATE({ano1},12,31)-{P('data_base')})/365" if c == cols[0] else 1,
         "0.000",
     )
-    aba.escrever(
+    por_ano(
         "fim",
         "Fim do período (anos desde a data-base)",
         lambda c: f"={x('fracao', c)}" if c == cols[0] else f"={x('fim', c - 1)}+1",
         "0.000",
     )
-    aba.escrever(
+    por_ano(
         "meio",
         "Meio do período (quando o caixa entra, em média)",
         lambda c: f"={x('fim', c)}-{x('fracao', c)}/2",
         "0.000",
     )
-    aba.escrever("fator", "Fator de desconto", lambda c: f"=1/(1+{wacc})^{x('meio', c)}", "0.0000")
-    aba.escrever(
+    por_ano("fator", "Fator de desconto", lambda c: f"=1/(1+{wacc_uso})^{x('meio', c)}", "0.0000")
+    por_ano(
         "vp",
         "Valor presente do fluxo",
         lambda c: f"={x('fcff', c)}*{x('fracao', c)}*{x('fator', c)}",
@@ -967,25 +1220,18 @@ def _aba_dcf(
     )
     aba.pular()
 
-    def unico(nome: str, rotulo: str, formula: str, formato: str = MI, **kw: Any) -> None:
-        aba.escrever(nome, rotulo, {COL_ANO1: formula}, formato, **kw)
-
     aba.secao("Perpetuidade (Gordon)")
-    unico("wacc", "WACC", f"={wacc}", PCT)
-    unico("g", "Crescimento na perpetuidade (g)", f"={g}", PCT)
+    unico("wacc", "WACC", f"={wacc_uso}", PCT2)
+    unico("g", "Crescimento na perpetuidade (g)", f"={P('crescimento_perpetuo')}", PCT2)
     unico(
         "fcff_terminal",
         f"FCFF normalizado de {anos[-1]}",
-        f"={proj.ref('nopat', ultimo)}+{proj.ref('da', ultimo)}"
-        f"-{esc['capex_perpetuidade']}*{proj.ref('da', ultimo)}"
-        f"-{proj.ref('variacao_giro', ultimo)}",
-        nota="NOPAT + depreciação - capex de reposição - investimento em giro",
+        f"={fcff.ref('fcff_terminal', COL_ANO1)}",
     )
     unico(
         "vt",
         "Valor terminal no fim do último ano",
         f"={x('fcff_terminal')}*(1+{x('g')})/({x('wacc')}-{x('g')})",
-        nota="FCFF x (1 + g) / (WACC - g)",
     )
     unico(
         "vp_vt",
@@ -996,9 +1242,11 @@ def _aba_dcf(
 
     aba.secao("Do valor da empresa ao preço por ação")
     unico("soma_vp", "Valor presente dos fluxos projetados", f"=SUM({faixa('vp')})")
-    unico("vp_vt2", "(+) Valor presente do valor terminal", f"={x('vp_vt')}")
     unico(
-        "ev", "Valor da empresa (Enterprise Value)", f"={x('soma_vp')}+{x('vp_vt2')}", destaque=True
+        "ev",
+        "Valor da empresa (Enterprise Value)",
+        f"={x('soma_vp')}+{x('vp_vt')}",
+        destaque=True,
     )
     unico(
         "divida_liquida",
@@ -1014,21 +1262,20 @@ def _aba_dcf(
         "investimentos",
         "(+) Investimentos em coligadas (valor contábil)",
         f"={hist.ref('investimentos', col_ltm)}",
-        nota="O FCFF não inclui a equivalência; as coligadas entram pelo valor do balanço.",
     )
-    unico("outros", "(-) Outros passivos tratados como dívida", f"={esc['outros_ajustes']}")
+    unico("outros", "(-) Outros passivos tratados como dívida", f"={P('outros_ajustes')}")
     unico(
         "equity",
         "Valor do acionista (Equity Value)",
         f"={x('ev')}-{x('divida_liquida')}-{x('minoritarios')}+{x('investimentos')}-{x('outros')}",
         destaque=True,
     )
-    unico("acoes", "Ações em circulação (milhões)", f"={esc['acoes']}", "#,##0.0")
+    unico("acoes", "Ações em circulação (milhões)", f"={P('acoes')}", "#,##0.0")
     unico(
         "preco_justo", "Preço justo por ação", f"={x('equity')}/{x('acoes')}", REAIS, destaque=True
     )
     ws.cell(aba.linha["preco_justo"], COL_ANO1).fill = FUNDO_RESULTADO
-    unico("preco", "Preço de mercado", f"={esc['preco']}", REAIS)
+    unico("preco", "Preço de mercado", f"={P('preco')}", REAIS)
     unico(
         "potencial", "Diferença para o preço de mercado", f"={x('preco_justo')}/{x('preco')}-1", PCT
     )
@@ -1042,24 +1289,27 @@ def _aba_dcf(
     aba.pular()
 
     aba.secao("Conferência pelo fluxo do acionista (FCFE), descontado pelo Ke")
-    aba.escrever("fcfe", "FCFE", lambda c: f"={proj.ref('fcfe', c)}", destaque=True)
-    aba.escrever("fator_ke", "Fator de desconto", lambda c: f"=1/(1+{ke})^{x('meio', c)}", "0.0000")
-    aba.escrever(
+    por_ano("fcfe", "FCFE", lambda c: f"={fcff.ref('fcfe', c)}", destaque=True)
+    por_ano(
+        "fator_ke",
+        "Fator de desconto pelo Ke",
+        lambda c: f"=1/(1+{ke_uso})^{x('meio', c)}",
+        "0.0000",
+    )
+    por_ano(
         "vp_fcfe",
-        "Valor presente do fluxo",
+        "Valor presente do FCFE",
         lambda c: f"={x('fcfe', c)}*{x('fracao', c)}*{x('fator_ke', c)}",
     )
-    unico("ke", "Custo do capital próprio (Ke)", f"={ke}", PCT)
+    unico("ke", "Custo do capital próprio (Ke) em uso", f"={ke_uso}", PCT2)
     unico(
         "fcfe_terminal",
         f"FCFE normalizado de {anos[-1]}",
-        f"={proj.ref('lucro_liquido', ultimo)}-{proj.ref('equivalencia', ultimo)}"
-        f"+{proj.ref('da', ultimo)}-{esc['capex_perpetuidade']}*{proj.ref('da', ultimo)}"
-        f"-{proj.ref('variacao_giro', ultimo)}+{proj.ref('captacao_liquida', ultimo)}",
+        f"={fcff.ref('fcfe_terminal', COL_ANO1)}",
     )
     unico(
         "vp_vt_fcfe",
-        "Valor presente do valor terminal",
+        "Valor presente do valor terminal do FCFE",
         f"={x('fcfe_terminal')}*(1+{x('g')})/({x('ke')}-{x('g')})/(1+{x('ke')})^{x('fim', ultimo)}",
     )
     unico(
@@ -1098,30 +1348,36 @@ def _aba_dcf(
             celula.number_format = REAIS
             if i == 2 and j == 2:
                 celula.fill, celula.font = FUNDO_RESULTADO, NEGRITO
-    aba.linha["sens_topo"] = topo
+    ws.cell(
+        topo,
+        cols[-1] + 1,
+        "Cada célula refaz a conta inteira com o WACC da linha e o g da coluna. "
+        "A do meio é o preço justo.",
+    ).font = CINZA
     aba.proxima = topo + 7
-
-    aba.larguras(rotulo=50, numeros=14, nota=70)
+    aba.larguras(rotulo=50, numeros=14)
     ws.freeze_panes = "C5"
-    saidas = {k: _celula(ws, aba.linha[k]) for k in ("preco_justo", "ev", "equity", "potencial")}
-    return aba, saidas
+    return aba
 
 
-# --------------------------------------------------------------------------- Múltiplos e cenários
+# --------------------------------------------------------------------------- Múltiplos
 
 
-def _aba_multiplos(wb: Workbook, ticker: str, dcf: dict[str, str]) -> None:
+def _aba_multiplos(wb: Workbook, valor: Aba) -> None:
     t = multiplos.calcular()
-    ordem = [ticker, *[k for k in t.index if k != ticker]]  # a empresa em cima, as pares abaixo
+    ordem = [*TICKERS, *[k for k in t.index if k not in TICKERS]]  # as três do estudo em cima
     ws = wb.create_sheet("Múltiplos")
-    aba = Aba(ws, list(range(3, 16)))
-    aba.titulo(
-        "Valuation por múltiplos",
-        "Últimos doze meses. A mediana das comparáveis é aplicada aos números da empresa.",
-    )
+    ws.cell(1, 2, "Valuation por múltiplos").font = TITULO
+    ws.cell(
+        2,
+        2,
+        "Quanto o mercado paga pelas comparáveis, com os números dos últimos doze meses. A "
+        "mediana das outras quatro, aplicada à empresa escolhida, dá um preço implícito.",
+    ).font = CINZA
     campos = (
         ("Setor", "setor", None),
         ("Preço", "preco", REAIS),
+        ("Ações (milhões)", "acoes", "#,##0.0"),
         ("Valor de mercado", "valor_de_mercado", MI),
         ("Dívida líquida", "divida_liquida", MI),
         ("Minoritários", "minoritarios", MI),
@@ -1136,20 +1392,23 @@ def _aba_multiplos(wb: Workbook, ticker: str, dcf: dict[str, str]) -> None:
         ("P/VP", None, VEZES),
     )
     col = {rotulo: 3 + i for i, (rotulo, _, _) in enumerate(campos)}
-    aba.colunas = list(col.values())
-    aba.cabecalho({c: rotulo for rotulo, c in col.items()}, "Empresa (R$ milhões)")
-    primeira = aba.proxima
+    cab = 4
+    for c, texto in [(2, "Empresa (R$ milhões)"), *[(c, rotulo) for rotulo, c in col.items()]]:
+        celula = ws.cell(cab, c, texto)
+        celula.font, celula.fill = BRANCO, FUNDO_CABECALHO
+        celula.alignment = Alignment(horizontal="left" if c == 2 else "center")
+    primeira = cab + 1
     for i, k in enumerate(ordem):
         r = primeira + i
-        ws.cell(r, 2, f"{t.loc[k, 'empresa']} ({k})").font = NEGRITO if i == 0 else Font()
+        ws.cell(r, 2, f"{t.loc[k, 'empresa']} ({k})")
 
         def c(rotulo: str, r: int = r) -> str:
             return f"{L(col[rotulo])}{r}"
 
         for rotulo, campo, formato in campos:
             if campo is not None:
-                valor = t.loc[k, campo]
-                celula = ws.cell(r, col[rotulo], valor if isinstance(valor, str) else float(valor))
+                bruto = t.loc[k, campo]
+                celula = ws.cell(r, col[rotulo], bruto if isinstance(bruto, str) else float(bruto))
             else:
                 formula = {
                     "EV": f"={c('Valor de mercado')}+{c('Dívida líquida')}+{c('Minoritários')}",
@@ -1163,83 +1422,110 @@ def _aba_multiplos(wb: Workbook, ticker: str, dcf: dict[str, str]) -> None:
                 celula.number_format = formato
             celula.alignment = Alignment(horizontal="right")
     ultima = primeira + len(ordem) - 1
-    mediana = ultima + 1
-    ws.cell(mediana, 2, "Mediana das comparáveis (sem a empresa)").font = NEGRITO
-    for rotulo in ("EV/EBITDA", "EV/EBIT", "P/L", "P/VP"):
+    razoes = ("EV/EBITDA", "EV/EBIT", "P/L", "P/VP")
+
+    # Uma mediana para cada empresa do estudo, sempre sem ela mesma.
+    medianas = ultima + 2
+    for i, ticker in enumerate(TICKERS):
+        r = medianas + i
+        ws.cell(r, 2, f"Mediana das comparáveis de {ticker} (sem ela)").font = NEGRITO
+        for rotulo in razoes:
+            letra = L(col[rotulo])
+            pares = ",".join(
+                f"{letra}{linha}" for linha in range(primeira, ultima + 1) if linha != primeira + i
+            )
+            celula = ws.cell(r, col[rotulo], f"=MEDIAN({pares})")
+            celula.number_format, celula.fill = VEZES, FUNDO_SECAO
+
+    def propria(rotulo: str) -> str:  # número da empresa escolhida
         letra = L(col[rotulo])
-        celula = ws.cell(mediana, col[rotulo], f"=MEDIAN({letra}{primeira + 1}:{letra}{ultima})")
-        celula.number_format, celula.font, celula.fill = VEZES, NEGRITO, FUNDO_SECAO
+        return f"INDEX({letra}{primeira}:{letra}{primeira + len(TICKERS) - 1},{EMP})"
 
-    def e(rotulo: str) -> str:  # número da própria empresa
-        return f"{L(col[rotulo])}{primeira}"
+    def mediana(rotulo: str) -> str:
+        letra = L(col[rotulo])
+        return f"INDEX({letra}{medianas}:{letra}{medianas + len(TICKERS) - 1},{EMP})"
 
-    def m(rotulo: str) -> str:
-        return f"{L(col[rotulo])}{mediana}"
-
-    acoes = f"({e('Valor de mercado')}/{e('Preço')})"
-    r = mediana + 2
-    ws.cell(r, 2, "Preço por ação implícito").font = BRANCO
-    ws.cell(r, 3, "R$ / ação").font = BRANCO
-    ws.cell(r, 4, "Como").font = BRANCO
-    for c_ in (2, 3, 4):
-        ws.cell(r, c_).fill = FUNDO_CABECALHO
+    acoes = propria("Ações (milhões)")
+    r = medianas + len(TICKERS) + 1
+    for c_, texto in ((2, ""), (3, "R$ / ação"), (4, "Como se calcula")):
+        celula = ws.cell(r, c_, texto)
+        celula.font, celula.fill = BRANCO, FUNDO_CABECALHO
+    ws.cell(
+        r, 2, f"=\"Preço por ação implícito - \"&'Painel'!${CELULA_EMPRESA[0]}${CELULA_EMPRESA[1:]}"
+    )
     linhas = (
         (
             "Pelo EV/EBITDA das comparáveis",
-            f"=IF({e('EBITDA')}>0,({m('EV/EBITDA')}*{e('EBITDA')}-{e('Dívida líquida')}"
-            f'-{e("Minoritários")})/{acoes},"n.a.")',
-            "Mediana x EBITDA, menos dívida líquida e minoritários",
+            f"=IF({propria('EBITDA')}>0,({mediana('EV/EBITDA')}*{propria('EBITDA')}"
+            f'-{propria("Dívida líquida")}-{propria("Minoritários")})/{acoes},"n.a.")',
+            "Mediana × EBITDA da empresa, menos dívida líquida e minoritários, ÷ número de ações.",
         ),
         (
             "Pelo EV/EBIT das comparáveis",
-            f"=IF({e('EBIT')}>0,({m('EV/EBIT')}*{e('EBIT')}-{e('Dívida líquida')}"
-            f'-{e("Minoritários")})/{acoes},"n.a.")',
-            "Mediana x EBIT, menos dívida líquida e minoritários",
+            f"=IF({propria('EBIT')}>0,({mediana('EV/EBIT')}*{propria('EBIT')}"
+            f'-{propria("Dívida líquida")}-{propria("Minoritários")})/{acoes},"n.a.")',
+            "Mediana × EBIT da empresa, menos dívida líquida e minoritários, ÷ número de ações.",
         ),
         (
             "Pelo P/L das comparáveis",
-            f'=IF({e("Lucro")}>0,{m("P/L")}*{e("Lucro")}/{acoes},"n.a.")',
-            "Mediana x lucro (não se aplica com prejuízo)",
+            f'=IF({propria("Lucro")}>0,{mediana("P/L")}*{propria("Lucro")}/{acoes},"n.a.")',
+            "Mediana × lucro da empresa ÷ número de ações. Não se aplica com prejuízo.",
         ),
         (
             "Pelo P/VP das comparáveis",
-            f"={m('P/VP')}*{e('Patrimônio')}/{acoes}",
-            "Mediana x patrimônio dos controladores",
+            f"={mediana('P/VP')}*{propria('Patrimônio')}/{acoes}",
+            "Mediana × patrimônio dos controladores ÷ número de ações.",
         ),
-        ("Pelo fluxo de caixa descontado (aba DCF)", f"={dcf['preco_justo']}", "Para comparar"),
-        ("Preço de mercado", f"={e('Preço')}", ""),
+        (
+            "Pelo fluxo de caixa descontado (aba Valor justo)",
+            f"={valor.ref('preco_justo', COL_ANO1)}",
+            "Para comparar com os múltiplos.",
+        ),
+        ("Preço de mercado", f"={propria('Preço')}", "Último fechamento na B3."),
     )
     for i, (rotulo, formula, como) in enumerate(linhas, start=1):
         ws.cell(r + i, 2, rotulo)
         celula = ws.cell(r + i, 3, formula)
         celula.number_format = REAIS
         celula.alignment = Alignment(horizontal="right")
-        ws.cell(r + i, 4, como).font = Font(italic=True, color="595959")
-    aba.larguras(rotulo=44, numeros=15, nota=4)
+        ws.cell(r + i, 4, como).font = CINZA
+    nota = r + len(linhas) + 2
+    for i, texto in enumerate(
+        (
+            "EV (valor da empresa) = valor de mercado + dívida líquida + minoritários.",
+            "EV/EBITDA: quantos anos de EBITDA o mercado paga pela empresa inteira.",
+            "P/L: quantos anos de lucro o mercado paga pela ação. P/VP: quanto paga por real de "
+            "patrimônio.",
+            "A mediana ignora os extremos: a Usiminas, com EBITDA perto de zero, tem EV/EBITDA "
+            "fora da curva.",
+        )
+    ):
+        ws.cell(nota + i, 2, texto).font = CINZA
+    ws.column_dimensions["A"].width = 2
+    ws.column_dimensions["B"].width = 48
+    for c_ in col.values():
+        ws.column_dimensions[L(c_)].width = 15
+    ws.sheet_view.showGridLines = False
+
+
+# --------------------------------------------------------------------------- Cenários
 
 
 def _aba_cenarios(
-    wb: Workbook,
-    ticker: str,
-    dados: dict[str, Any],
-    esc: dict[str, str],
-    proj: Aba,
-    dcf: dict[str, str],
+    wb: Workbook, todos: dict[str, dict[str, Any]], anos: list[int], proj: Aba, valor: Aba
 ) -> None:
-    anos: list[int] = dados["anos"]
     cols = list(range(COL_ANO1, COL_ANO1 + len(anos)))
     aba = Aba(wb.create_sheet("Cenários"), cols)
     ws = aba.ws
     aba.titulo(
         "Cenários e movimento do caixa",
-        "Troque o cenário na aba Premissas (célula D4): tudo abaixo e o resto da planilha seguem.",
+        "De onde vem e para onde vai o caixa em cada ano, no cenário em uso. Abaixo, os três "
+        "cenários lado a lado.",
     )
-    ws.cell(aba.proxima, 2, "Cenário em uso").font = NEGRITO
-    ws.cell(aba.proxima, COL_ANO1, "='Premissas'!D4").font = NEGRITO
-    aba.pular(2)
-
+    _titulo_com_empresa(ws, "Cenários")
     aba.cabecalho(
-        {c: f"{a}E" for c, a in zip(cols, anos, strict=True)}, "Entradas e saídas de caixa"
+        {**{c: f"{a}E" for c, a in zip(cols, anos, strict=True)}, **_explicacao(aba, "O que é")},
+        "Entradas e saídas de caixa",
     )
 
     def x(nome: str, c: int) -> str:
@@ -1248,76 +1534,73 @@ def _aba_cenarios(
     def pr(nome: str, c: int) -> str:
         return proj.ref(nome, c)
 
+    def linha(nome: str, rotulo: str, formula: Formula, destaque: bool = False) -> None:
+        aba.escrever(nome, rotulo, formula, destaque=destaque, nota=LINHAS[f"c_{nome}"])
+
     aba.secao("Entradas (cash in)")
-    aba.escrever(
+    linha(
         "operacao",
         "Caixa gerado pela operação (EBITDA sem equivalência)",
         lambda c: f"={pr('ebitda', c)}-{pr('equivalencia', c)}",
     )
-    aba.escrever(
-        "rendimento",
-        "Rendimento do caixa",
-        lambda c: f"={pr('caixa_total', c - 1)}*{esc['rendimento_caixa']}",
-    )
-    aba.escrever(
+    linha("rendimento", "Rendimento do caixa", lambda c: f"={pr('receita_financeira', c)}")
+    linha(
         "captacao",
         "Captação líquida de dívida (se positiva)",
-        lambda c: f"=MAX(0,{pr('captacao_liquida', c)})",
+        lambda c: f"=MAX(0,{P('captacao_liquida', c)})",
     )
-    aba.escrever(
+    linha(
         "entradas",
         "Total de entradas",
         lambda c: f"={x('operacao', c)}+{x('rendimento', c)}+{x('captacao', c)}",
         destaque=True,
     )
     aba.secao("Saídas (cash out)")
-    aba.escrever("impostos", "Imposto de renda e CSLL", lambda c: f"={pr('ir', c)}")
-    aba.escrever("capex", "Capex", lambda c: f"={pr('capex', c)}")
-    aba.escrever("giro", "Investimento em capital de giro", lambda c: f"={pr('variacao_giro', c)}")
-    aba.escrever(
-        "juros", "Juros da dívida", lambda c: f"={pr('divida_bruta', c - 1)}*{esc['custo_divida']}"
-    )
-    aba.escrever(
+    linha("impostos", "Imposto de renda e CSLL", lambda c: f"={pr('ir', c)}")
+    linha("capex", "Capex", lambda c: f"={pr('capex', c)}")
+    linha("giro", "Investimento em capital de giro", lambda c: f"={pr('variacao_giro', c)}")
+    linha("juros", "Juros da dívida", lambda c: f"={pr('despesa_financeira', c)}")
+    linha(
         "amortizacao",
         "Amortização líquida de dívida (se negativa a captação)",
-        lambda c: f"=MAX(0,-{pr('captacao_liquida', c)})",
+        lambda c: f"=MAX(0,-{P('captacao_liquida', c)})",
     )
-    aba.escrever("dividendos", "Dividendos", lambda c: f"={pr('dividendos', c)}")
-    aba.escrever(
+    linha("dividendos", "Dividendos", lambda c: f"={pr('dividendos', c)}")
+    linha(
         "saidas",
         "Total de saídas",
         lambda c: f"=SUM({L(c)}{aba.linha['impostos']}:{L(c)}{aba.linha['dividendos']})",
         destaque=True,
     )
     aba.secao("Saldo")
-    aba.escrever(
+    linha(
         "variacao",
         "Entradas - saídas",
         lambda c: f"={x('entradas', c)}-{x('saidas', c)}",
         destaque=True,
     )
-    aba.escrever("caixa_final", "Caixa no fim do ano", lambda c: f"={pr('caixa_total', c)}")
-    aba.escrever(
+    linha("caixa_final", "Caixa no fim do ano", lambda c: f"={pr('caixa_total', c)}")
+    linha(
         "confere",
         "Checagem: bate com a variação de caixa da projeção (zero)",
         lambda c: f"=ROUND({x('variacao', c)}-{pr('variacao_caixa', c)},3)",
     )
     aba.pular(2)
 
-    # Comparativo: valores do modelo em Python para os três cenários.
-    topo = aba.proxima
-    titulos = ["Comparativo dos cenários (calculado pelo modelo)", "", *NOME_CENARIO.values()]
-    for i, texto in enumerate(titulos):
-        celula = ws.cell(topo, 2 + i, texto)
-        celula.font, celula.fill = BRANCO, FUNDO_CABECALHO
-    resultados = {c: modelo.rodar(ticker, dados, c) for c in premissas.CENARIOS}
+    # Comparativo: valores do modelo em Python, um bloco por empresa com o mesmo desenho.
     ultimo = anos[-1]
-    linhas: tuple[tuple[str, Callable[[dict[str, Any]], float], str], ...] = (
+    medidas: tuple[tuple[str, Callable[[dict[str, Any]], float], str], ...] = (
         ("Preço justo por ação", lambda r: r["valuation"]["preco_justo"], REAIS),
         ("Valor da empresa (EV)", lambda r: r["valuation"]["ev"], MI),
         ("Valor do acionista", lambda r: r["valuation"]["equity"], MI),
-        (f"Receita {ultimo}E", lambda r: r["projecao"].loc["receita", ultimo], MI),
+        ("WACC", lambda r: r["valuation"]["wacc"], PCT),
+        (
+            "Crescimento da receita, ao ano",
+            lambda r: r["premissas"]["crescimento_receita"][-1],
+            PCT,
+        ),
         (f"Margem EBITDA {ultimo}E", lambda r: r["projecao"].loc["margem_ebitda", ultimo], PCT),
+        (f"Receita {ultimo}E", lambda r: r["projecao"].loc["receita", ultimo], MI),
         (f"Caixa no fim de {ultimo}E", lambda r: r["projecao"].loc["caixa_total", ultimo], MI),
         (
             f"Dívida líquida / EBITDA {ultimo}E",
@@ -1325,119 +1608,582 @@ def _aba_cenarios(
             VEZES,
         ),
     )
-    for i, (rotulo, pegar, formato) in enumerate(linhas, start=1):
-        ws.cell(topo + i, 2, rotulo)
-        for j, cenario in enumerate(premissas.CENARIOS):
-            celula = ws.cell(topo + i, COL_ANO1 + j, float(pegar(resultados[cenario])))
+    altura = len(medidas) + 3
+    topo = aba.proxima
+    fim = topo + altura * (len(TICKERS) + 1)
+
+    def cabecalho(r: int, titulo: str) -> None:
+        for i, texto in enumerate([titulo, "", *NOME_CENARIO.values()]):
+            celula = ws.cell(r, 2 + i, texto)
+            celula.font, celula.fill = BRANCO, FUNDO_CABECALHO
+
+    # Bloco em uso: busca a mesma posição no bloco da empresa escolhida.
+    cabecalho(topo, "Os três cenários da empresa escolhida (calculados pelo modelo)")
+    for i, (rotulo, _, formato) in enumerate(medidas, start=1):
+        ws.cell(topo + i, 2, rotulo).font = NEGRITO if i == 1 else Font()
+        for j in range(3):
+            letra = L(COL_ANO1 + j)
+            celula = ws.cell(
+                topo + i, COL_ANO1 + j, f"=INDEX({letra}$1:{letra}${fim},ROW()+{altura}*{EMP})"
+            )
             celula.number_format = formato
-    r = topo + len(linhas) + 2
+            if i == 1:
+                celula.font = NEGRITO
+    for k, ticker in enumerate(TICKERS, start=1):
+        r0 = topo + altura * k
+        dados = todos[ticker]["dados"]
+        resultados = {c: modelo.rodar(ticker, dados, c) for c in premissas.CENARIOS}
+        cabecalho(r0, NOME_EMPRESA[ticker])
+        for i, (rotulo, pegar, formato) in enumerate(medidas, start=1):
+            ws.cell(r0 + i, 2, rotulo)
+            for j, cenario in enumerate(premissas.CENARIOS):
+                celula = ws.cell(r0 + i, COL_ANO1 + j, float(pegar(resultados[cenario])))
+                celula.number_format = formato
+
+    r = fim + 1
     ws.cell(r, 2, "Preço justo na planilha viva, no cenário em uso")
-    vivo = ws.cell(r, COL_ANO1, f"={dcf['preco_justo']}")
+    vivo = ws.cell(r, COL_ANO1, f"={valor.ref('preco_justo', COL_ANO1)}")
     vivo.number_format, vivo.font, vivo.fill = REAIS, NEGRITO, FUNDO_RESULTADO
-    ws.cell(r + 1, 2, "Diferença para o comparativo acima (zero se as premissas não mudaram)")
-    preco_linha = topo + 1
+    ws.cell(r + 1, 2, "Diferença para o comparativo acima (zero sem ajuste manual)")
+    linhas_manuais = LINHA_VARIAVEL.values()
+    manual = (
+        f"'Painel'!${L(COL_MANUAL)}${min(linhas_manuais)}:${L(COL_MANUAL)}${max(linhas_manuais)}"
+    )
     ws.cell(
         r + 1,
         COL_ANO1,
-        f"=ROUND({L(COL_ANO1)}{r}-INDEX({L(COL_ANO1)}{preco_linha}:{L(COL_ANO1 + 2)}{preco_linha},"
-        f"{esc['cenario']}),2)",
+        f"=IF(COUNT({manual})=0,ROUND({L(COL_ANO1)}{r}"
+        f'-INDEX({L(COL_ANO1)}{topo + 1}:{L(COL_ANO1 + 2)}{topo + 1},{CEN}),2),"-")',
     ).number_format = DEC
-    aba.linha["comparativo"] = topo
-    aba.larguras(rotulo=56, numeros=14, nota=4)
+    ws.cell(
+        r + 1,
+        cols[-1] + 1,
+        "Confere a planilha contra o modelo em Python. Com ajuste manual o cenário já não é "
+        "nenhum dos três.",
+    ).font = CINZA
+    aba.larguras(rotulo=56, numeros=14)
 
 
-def _aba_resumo(
-    wb: Workbook, dados: dict[str, Any], dcf_aba: Aba, dcf: dict[str, str], proj: Aba
-) -> None:
-    ws = wb.create_sheet("Resumo", 0)
-    aba = Aba(ws, [COL_ANO1])
-    anos: list[int] = dados["anos"]
-    aba.titulo(
-        f"Valuation - {dados['empresa']} ({dados['ticker']})",
-        f"Data-base {dados['data_base']}. Dados públicos da CVM e da B3. "
-        "R$ milhões, salvo indicação.",
-    )
-    aviso = (
-        "Estudo acadêmico e de portfólio. Não é recomendação de compra ou venda. "
-        "O resultado depende das premissas da aba Premissas"
-        + (
-            ", que nesta versão são uma proposta automática ainda não revisada."
-            if dados["status"] != "aprovada"
-            else "."
-        )
-    )
-    ws.cell(3, 2, aviso).font = Font(italic=True, color="C00000")
-    aba.proxima = 5
-    aba.cabecalho({COL_ANO1: "Valor"}, "Resultado no cenário em uso")
+# --------------------------------------------------------------------------- Correlação
 
-    def unico(rotulo: str, formula: str, formato: str, destaque: bool = False) -> None:
-        aba.escrever(rotulo, rotulo, {COL_ANO1: formula}, formato, destaque=destaque)
+# Onde ficam as estatísticas e os dados mensais da aba Correlação.
+LINHA_STATS, CAB_MENSAL = 6, 21
 
-    d = dcf_aba
-    unico("Cenário", "='Premissas'!D4", "@")
-    unico("Preço justo por ação (DCF)", f"={dcf['preco_justo']}", REAIS, True)
-    unico("Preço de mercado", f"={d.ref('preco', COL_ANO1)}", REAIS)
-    unico("Diferença para o mercado", f"={dcf['potencial']}", PCT)
-    unico("Valor da empresa (EV)", f"={dcf['ev']}", MI)
-    unico("Valor do acionista", f"={dcf['equity']}", MI)
-    unico("WACC", f"={d.ref('wacc', COL_ANO1)}", PCT)
-    unico("Custo do capital próprio (Ke)", f"={d.ref('ke', COL_ANO1)}", PCT)
-    unico("Crescimento na perpetuidade", f"={d.ref('g', COL_ANO1)}", PCT)
-    unico("Peso do valor terminal", f"={d.ref('peso_vt', COL_ANO1)}", PCT)
-    unico("Preço pelo fluxo do acionista (FCFE)", f"={d.ref('preco_fcfe', COL_ANO1)}", REAIS)
-    ws.cell(aba.linha["Preço justo por ação (DCF)"], COL_ANO1).fill = FUNDO_RESULTADO
-    aba.pular()
-    aba.cabecalho({COL_ANO1: "Aba"}, "Como ler a planilha")
-    for nome, texto in (
-        ("Premissas", "Entradas do modelo e seletor de cenário. Comece por aqui."),
-        ("Histórico", "DRE, balanço e fluxo de caixa da CVM, com indicadores."),
-        ("Projeção", "Receita, custos, capex, depreciação, giro e as três demonstrações ligadas."),
-        ("WACC", "CAPM e custo médio ponderado de capital."),
-        ("DCF", "FCFF e FCFE descontados, valor da empresa, valor do acionista, sensibilidade."),
-        ("Múltiplos", "EV/EBITDA, P/L e P/VP contra as comparáveis."),
-        ("Cenários", "Entradas e saídas de caixa e comparativo pessimista, base e otimista."),
+
+def _aba_correlacao(wb: Workbook) -> None:
+    """Preço das ações contra o minério de ferro, com as estatísticas em fórmula."""
+    t = commodities.series()
+    ws = wb.create_sheet("Correlação")
+    ws.cell(1, 2, "Ação contra minério de ferro").font = TITULO
+    ws.cell(
+        2,
+        2,
+        "A ação anda junto com o minério? A conta usa a variação de um mês para o outro, não o "
+        "nível do preço: duas séries que só sobem parecem ligadas mesmo sem ter relação.",
+    ).font = CINZA
+
+    # Dados mensais: mês, minério, dólar, minério em reais, três ações, ação escolhida;
+    # depois as variações mensais e os índices base 100 que alimentam o gráfico.
+    primeira = CAB_MENSAL + 1
+    ultima = primeira + len(t) - 1
+    titulos = [
+        "Mês", "Minério (US$/t)", "Dólar (R$)", "Minério (R$/t)", *TICKERS, "Ação escolhida",
+        "Var. minério US$", "Var. minério R$", *[f"Var. {k}" for k in TICKERS],
+        "Var. ação escolhida", "Minério, base 100", "Ação escolhida, base 100",
+    ]  # fmt: skip
+    for j, texto in enumerate(titulos):
+        celula = ws.cell(CAB_MENSAL, 2 + j, texto)
+        celula.font, celula.fill = BRANCO, FUNDO_CABECALHO
+        celula.alignment = Alignment(horizontal="center", wrap_text=True)
+    c_mes, c_min, c_dolar, c_min_brl = 2, 3, 4, 5
+    c_acao = {k: 6 + i for i, k in enumerate(TICKERS)}
+    c_sel = 6 + len(TICKERS)
+    c_var_min, c_var_brl = c_sel + 1, c_sel + 2
+    c_var = {k: c_sel + 3 + i for i, k in enumerate(TICKERS)}
+    c_var_sel = c_sel + 3 + len(TICKERS)
+    c_idx_min, c_idx_sel = c_var_sel + 1, c_var_sel + 2
+    for i, (mes, linha) in enumerate(t.iterrows()):
+        r = primeira + i
+        ws.cell(r, c_mes, mes)
+        ws.cell(r, c_min, float(linha["minerio_usd"])).number_format = "0.0"
+        ws.cell(r, c_dolar, float(linha["dolar"])).number_format = DEC
+        ws.cell(r, c_min_brl, f"={L(c_min)}{r}*{L(c_dolar)}{r}").number_format = "0.0"
+        for k in TICKERS:
+            ws.cell(r, c_acao[k], float(linha[k])).number_format = DEC
+        das_tres = ",".join(f"{L(c_acao[k])}{r}" for k in TICKERS)
+        ws.cell(r, c_sel, f"=CHOOSE({EMP},{das_tres})").number_format = DEC
+        if i > 0:
+            for origem, destino in (
+                (c_min, c_var_min),
+                (c_min_brl, c_var_brl),
+                *[(c_acao[k], c_var[k]) for k in TICKERS],
+                (c_sel, c_var_sel),
+            ):
+                ws.cell(r, destino, f"={L(origem)}{r}/{L(origem)}{r - 1}-1").number_format = PCT
+        ws.cell(r, c_idx_min, f"={L(c_min)}{r}/{L(c_min)}${primeira}*100").number_format = "0.0"
+        ws.cell(r, c_idx_sel, f"={L(c_sel)}{r}/{L(c_sel)}${primeira}*100").number_format = "0.0"
+
+    def faixa(coluna: int) -> str:
+        return f"{L(coluna)}${primeira + 1}:{L(coluna)}${ultima}"
+
+    # Estatísticas, uma linha por empresa: contra o minério em dólar e em reais.
+    ws.cell(LINHA_STATS - 2, 3, "Contra o minério em dólar").font = NEGRITO
+    ws.cell(LINHA_STATS - 2, 6, "Contra o minério em reais").font = NEGRITO
+    for c, texto in enumerate(
+        ["Variação mensal da ação", *["Correlação", "Sensibilidade", "R²"] * 2],
+        start=2,
     ):
-        ws.cell(aba.proxima, 2, texto)
-        ws.cell(aba.proxima, COL_ANO1, nome).font = NEGRITO
-        aba.pular()
-    aba.larguras(rotulo=78, numeros=16, nota=4)
-    ws.column_dimensions["C"].width = 2
+        celula = ws.cell(LINHA_STATS - 1, c, texto)
+        celula.font, celula.fill = BRANCO, FUNDO_CABECALHO
+        celula.alignment = Alignment(horizontal="left" if c == 2 else "center")
+    for i, k in enumerate(TICKERS):
+        r = LINHA_STATS + i
+        ws.cell(r, 2, NOME_EMPRESA[k])
+        for j, minerio in enumerate((c_var_min, c_var_brl)):
+            y, xx = faixa(c_var[k]), faixa(minerio)
+            for d, (formula, formato) in enumerate(
+                ((f"=CORREL({y},{xx})", DEC), (f"=SLOPE({y},{xx})", DEC), (f"=RSQ({y},{xx})", PCT))
+            ):
+                ws.cell(r, 3 + 3 * j + d, formula).number_format = formato
+    r_sel = LINHA_STATS + len(TICKERS)
+    ws.cell(
+        r_sel, 2, f"=\"Escolhida: \"&'Painel'!${CELULA_EMPRESA[0]}${CELULA_EMPRESA[1:]}"
+    ).font = NEGRITO
+    for c in range(3, 9):
+        letra = L(c)
+        celula = ws.cell(r_sel, c, f"=INDEX({letra}{LINHA_STATS}:{letra}{r_sel - 1},{EMP})")
+        celula.number_format = PCT if c in (5, 8) else DEC
+        celula.font, celula.fill = NEGRITO, FUNDO_RESULTADO
+    for i, texto in enumerate(
+        (
+            "Correlação: vai de -1 a 1. Perto de 1, a ação sobe quando o minério sobe; perto de 0, "
+            "não há relação.",
+            "Sensibilidade: quanto a ação costuma variar quando o minério varia 1% (inclinação da "
+            "reta).",
+            "R²: quanto da oscilação da ação o minério explica sozinho. O resto vem de câmbio, "
+            "juros, custos e notícias.",
+            f"Período: {t.index[0]} a {t.index[-1]}, {len(t) - 1} variações mensais. Preço médio "
+            "do mês; ações sem ajuste de dividendos.",
+            "Fontes: Banco Mundial (minério 62% Fe, CFR China), Banco Central (dólar PTAX) e B3 "
+            "(COTAHIST).",
+        )
+    ):
+        ws.cell(r_sel + 2 + i, 2, texto).font = CINZA
+
+    # Gráfico 1: minério e ação escolhida, os dois começando em 100.
+    linhas = LineChart()
+    linhas.title = "Minério de ferro e ação escolhida (primeiro mês = 100)"
+    linhas.height, linhas.width = 8.5, 17
+    for coluna in (c_idx_min, c_idx_sel):
+        linhas.add_data(
+            Reference(ws, min_col=coluna, min_row=CAB_MENSAL, max_row=ultima), titles_from_data=True
+        )
+    linhas.set_categories(Reference(ws, min_col=c_mes, min_row=primeira, max_row=ultima))
+    linhas.x_axis.tickLblSkip = 12
+    ws.add_chart(linhas, f"J{LINHA_STATS - 3}")
+
+    # Gráfico 2: cada ponto é um mês, variação do minério contra variação da ação.
+    pontos = ScatterChart()
+    pontos.title = "Cada ponto é um mês: variação do minério (horizontal) e da ação (vertical)"
+    pontos.style = 13
+    pontos.height, pontos.width = 8.5, 17
+    serie = Series(
+        Reference(ws, min_col=c_var_sel, min_row=primeira + 1, max_row=ultima),
+        Reference(ws, min_col=c_var_min, min_row=primeira + 1, max_row=ultima),
+        title="Meses",
+    )
+    serie.marker.symbol = "circle"
+    serie.marker.size = 6
+    # Sem cor explícita o LibreOffice desenha os pontos em branco.
+    serie.marker.graphicalProperties.solidFill = "2A78D6"
+    serie.marker.graphicalProperties.line.solidFill = "2A78D6"
+    serie.graphicalProperties.line.noFill = True
+    pontos.series.append(serie)
+    pontos.legend = None
+    ws.add_chart(pontos, f"T{LINHA_STATS - 3}")
+
+    ws.column_dimensions["A"].width = 2
+    ws.column_dimensions["B"].width = 44
+    for c in range(3, 2 + len(titulos)):
+        ws.column_dimensions[L(c)].width = 13
+    ws.row_dimensions[CAB_MENSAL].height = 32
+    ws.sheet_view.showGridLines = False
+
+
+# --------------------------------------------------------------------------- Painel, passo a passo e glossário
+
+
+def _aba_painel(ws: Worksheet, anos: list[int], wacc: Aba, valor: Aba, fcff: Aba) -> None:
+    ws.cell(1, 2, "Valuation de Vale, CSN e Gerdau").font = TITULO
+    ws.cell(
+        2, 2, "Escolha a empresa e o cenário nas células amarelas. Todas as abas recalculam."
+    ).font = CINZA
+    ws.cell(
+        3,
+        2,
+        "Estudo acadêmico e de portfólio, com dados públicos da CVM e da B3. Não é recomendação "
+        "de compra ou venda. As premissas são uma proposta por regra, ainda não revisada.",
+    ).font = Font(italic=True, color="C00000")
+
+    # Listas das duas escolhas, fora da área de leitura.
+    ws.cell(4, 24, "Listas (não apagar)").font = NEGRITO
+    for i, ticker in enumerate(TICKERS):
+        ws.cell(5 + i, 24, NOME_EMPRESA[ticker])
+    for i, nome in enumerate(premissas.CENARIOS):
+        ws.cell(9 + i, 24, NOME_CENARIO[nome])
+    ws.cell(5, 25, f"=MATCH(${CELULA_EMPRESA[0]}${CELULA_EMPRESA[1:]},$X$5:$X$7,0)")
+    ws.cell(9, 25, f"=MATCH(${CELULA_CENARIO[0]}${CELULA_CENARIO[1:]},$X$9:$X$11,0)")
+
+    for endereco, rotulo, inicial, lista in (
+        (CELULA_EMPRESA, "Empresa", NOME_EMPRESA[TICKERS[0]], "$X$5:$X$7"),
+        (CELULA_CENARIO, "Cenário", NOME_CENARIO["moderado"], "$X$9:$X$11"),
+    ):
+        celula = ws[endereco]
+        ws.cell(celula.row, 2, rotulo).font = NEGRITO
+        celula.value = inicial
+        celula.font, celula.fill = Font(bold=True, color="0000FF", size=12), FUNDO_ENTRADA
+        for c in (5, 6):
+            ws.cell(celula.row, c).fill = FUNDO_ENTRADA
+        validacao = DataValidation(type="list", formula1=lista, allow_blank=False)
+        ws.add_data_validation(validacao)
+        validacao.add(endereco)
+        ws.cell(celula.row, 7, "← clique na célula e escolha na lista").font = CINZA
+
+    # As três variáveis do cenário.
+    cab = min(LINHA_VARIAVEL.values()) - 1
+    for c, texto in (
+        (2, "As três variáveis do cenário"),
+        (COL_USO, "Em uso"),
+        (COL_PESS, "Pessimista"),
+        (COL_MOD, "Moderado"),
+        (COL_OTIM, "Otimista"),
+        (COL_MANUAL, "Ajuste manual"),
+        (COL_PARTIDA, "Partida"),
+    ):
+        celula = ws.cell(cab, c, texto)
+        celula.font, celula.fill = BRANCO, FUNDO_CABECALHO
+        celula.alignment = Alignment(horizontal="left" if c == 2 else "center")
+    capm = wacc.ref("wacc", COL_ANO1, fixa=True)
+    variaveis: tuple[tuple[str, str, Formula, str], ...] = (
+        (
+            "crescimento_receita",
+            "Crescimento da receita, ao ano",
+            lambda c: f"={P('crescimento_receita', c)}",
+            f"={P('crescimento_receita', 3)}",
+        ),
+        (
+            "margem_ebitda",
+            f"Margem EBITDA em {anos[-1]}",
+            lambda c: f"={P('margem_ebitda', c)}",
+            f"={P('margem_ebitda', 3)}",
+        ),
+        (
+            "wacc",
+            "WACC (taxa de desconto)",
+            lambda c: f"={capm}+{P('ajuste_wacc', c)}",
+            f"={capm}",
+        ),
+    )
+    for nome, rotulo, do_cenario, partida in variaveis:
+        r = LINHA_VARIAVEL[nome]
+        ws.cell(r, 2, rotulo).font = NEGRITO
+        for coluna, origem in ((COL_PESS, 4), (COL_MOD, 5), (COL_OTIM, 6)):
+            ws.cell(r, coluna, do_cenario(origem)).number_format = PCT
+        ws.cell(r, COL_PARTIDA, partida).number_format = PCT
+        manual = ws.cell(r, COL_MANUAL)
+        manual.number_format, manual.font, manual.fill = PCT, AZUL, FUNDO_ENTRADA
+        faixa = f"{L(COL_PESS)}{r}:{L(COL_OTIM)}{r}"
+        # O ajuste manual só aceita valor entre o pessimista e o otimista.
+        limite = DataValidation(
+            type="decimal",
+            operator="between",
+            formula1=f"=MIN(${L(COL_PESS)}${r}:${L(COL_OTIM)}${r})",
+            formula2=f"=MAX(${L(COL_PESS)}${r}:${L(COL_OTIM)}${r})",
+            allow_blank=True,
+            showErrorMessage=True,
+            errorTitle="Fora da faixa",
+            error="Use um valor entre o pessimista e o otimista.",
+        )
+        ws.add_data_validation(limite)
+        limite.add(manual.coordinate)
+        m = manual.coordinate
+        uso = ws.cell(
+            r,
+            COL_USO,
+            f"=IF(ISNUMBER({m}),MIN(MAX({m},MIN({faixa})),MAX({faixa})),"
+            f"CHOOSE({CEN},{L(COL_PESS)}{r},{L(COL_MOD)}{r},{L(COL_OTIM)}{r}))",
+        )
+        uso.number_format, uso.font, uso.fill = PCT, NEGRITO, FUNDO_RESULTADO
+    fim_vars = max(LINHA_VARIAVEL.values())
+    ws.cell(
+        fim_vars + 1,
+        2,
+        "Ajuste manual: digite um valor entre o pessimista e o otimista (ex.: 5%) para testar um "
+        "meio-termo; deixe vazio para usar o cenário. Partida é o nível de hoje.",
+    ).font = CINZA
+
+    # Resultado
+    r = fim_vars + 3
+    for c, texto in ((2, "Resultado"), (3, "Valor"), (4, "O que é")):
+        celula = ws.cell(r, c, texto)
+        celula.font, celula.fill = BRANCO, FUNDO_CABECALHO
+    d = COL_ANO1
+    resultados = (
+        ("Preço justo por ação", valor.ref("preco_justo", d), REAIS, "Quanto vale cada ação segundo o modelo, no cenário em uso."),
+        ("Preço de mercado", valor.ref("preco", d), REAIS, "Último fechamento na B3."),
+        ("Diferença para o mercado", valor.ref("potencial", d), PCT, "Preço justo ÷ preço de mercado − 1."),
+        ("Valor da empresa (EV)", valor.ref("ev", d), MI, "Valor da operação inteira, em R$ milhões."),
+        ("Valor do acionista", valor.ref("equity", d), MI, "EV menos dívida líquida e minoritários, mais investimentos."),
+        ("Peso do valor terminal", valor.ref("peso_vt", d), PCT, f"Quanto do valor vem de depois de {anos[-1]}."),
+        ("Preço pelo fluxo do acionista (FCFE)", valor.ref("preco_fcfe", d), REAIS, "Conferência por outro caminho: deve ficar perto do preço justo."),
+    )  # fmt: skip
+    for i, (rotulo, origem, formato, texto) in enumerate(resultados, start=1):
+        ws.cell(r + i, 2, rotulo).font = NEGRITO if i == 1 else Font()
+        celula = ws.cell(r + i, 3, f"={origem}")
+        celula.number_format = formato
+        if i == 1:
+            celula.font, celula.fill = Font(bold=True, size=14), FUNDO_RESULTADO
+        ws.cell(r + i, 4, texto).font = CINZA
+
+    # O caminho da conta, com o número de cada etapa.
+    r = r + len(resultados) + 2
+    for c, texto in (
+        (2, "O caminho do cálculo, começando pelo FCFF"),
+        (3, "Valor"),
+        (4, "Onde ver"),
+    ):
+        celula = ws.cell(r, c, texto)
+        celula.font, celula.fill = BRANCO, FUNDO_CABECALHO
+    caminho = (
+        (f"1. FCFF de {anos[1]}E: o caixa livre da empresa", fcff.ref("fcff", d + 1), MI, "Aba FCFF"),
+        ("2. WACC: a taxa que traz o futuro a valor de hoje", wacc.ref("wacc_uso", d), PCT2, "Aba WACC"),
+        (f"3. Fluxos de {anos[0]} a {anos[-1]}, a valor de hoje", valor.ref("soma_vp", d), MI, "Aba Valor justo"),
+        (f"4. Tudo o que vem depois de {anos[-1]}, a valor de hoje", valor.ref("vp_vt", d), MI, "Aba Valor justo"),
+        ("5. Valor da empresa (3 + 4)", valor.ref("ev", d), MI, "Aba Valor justo"),
+        ("6. Valor do acionista (5 − dívida líquida − minoritários + investimentos)", valor.ref("equity", d), MI, "Aba Valor justo"),
+        ("7. Preço justo (6 ÷ número de ações)", valor.ref("preco_justo", d), REAIS, "A aba Passo a passo explica cada etapa"),
+    )  # fmt: skip
+    for i, (rotulo, origem, formato, onde) in enumerate(caminho, start=1):
+        ws.cell(r + i, 2, rotulo)
+        ws.cell(r + i, 3, f"={origem}").number_format = formato
+        ws.cell(r + i, 4, onde).font = CINZA
 
     grafico = BarChart()
     grafico.title = "FCFF projetado (R$ milhões)"
     grafico.legend = None
-    r = proj.linha["fcff"]
-    cab = 4  # linha do cabeçalho de anos na aba Projeção
     ultimo = COL_ANO1 + len(anos) - 1
+    linha_fcff = fcff.linha["fcff"]
     grafico.add_data(
-        Reference(proj.ws, min_col=COL_ANO1, max_col=ultimo, min_row=r), from_rows=True
+        Reference(fcff.ws, min_col=COL_ANO1, max_col=ultimo, min_row=linha_fcff), from_rows=True
     )
-    grafico.set_categories(Reference(proj.ws, min_col=COL_ANO1, max_col=ultimo, min_row=cab))
-    grafico.height, grafico.width = 7.5, 14
-    ws.add_chart(grafico, "F5")
+    grafico.set_categories(Reference(fcff.ws, min_col=COL_ANO1, max_col=ultimo, min_row=4))
+    grafico.height, grafico.width = 8.5, 15
+    ws.add_chart(grafico, "J5")
+
+    ws.column_dimensions["A"].width = 2
+    ws.column_dimensions["B"].width = 62
+    for c in range(3, 9):
+        ws.column_dimensions[L(c)].width = 15
+    ws.column_dimensions["X"].width = 22
+    ws.sheet_view.showGridLines = False
+
+
+def _aba_passos(wb: Workbook, anos: list[int], wacc: Aba, valor: Aba, fcff: Aba) -> None:
+    ws = wb.create_sheet("Passo a passo")
+    _titulo_com_empresa(ws, "Como o preço justo é calculado")
+    ws.cell(
+        2,
+        2,
+        "O valuation pelo fluxo de caixa da empresa, em sete passos. Os números são os da empresa "
+        "e do cenário escolhidos no Painel e mudam junto com eles.",
+    ).font = CINZA
+    ano = anos[1]
+    c2 = COL_ANO1 + 1  # coluna do segundo ano projetado, usado de exemplo
+    d = COL_ANO1
+    contas: tuple[tuple[tuple[str, str, str, str], ...], ...] = (
+        (
+            (f"NOPAT de {ano}E (lucro da operação depois do imposto)", fcff.ref("nopat", c2), MI, ""),
+            ("+ Depreciação", fcff.ref("da", c2), MI, "não saiu do caixa"),
+            ("− Capex", fcff.ref("capex", c2), MI, "investimento em ativos"),
+            ("− Variação do capital de giro", fcff.ref("variacao_giro", c2), MI, "dinheiro a mais preso na operação"),
+            (f"(=) FCFF de {ano}E", fcff.ref("fcff", c2), MI, "a aba FCFF repete a conta para cada ano"),
+        ),
+        (
+            ("Juro sem risco", wacc.ref("rf", d), PCT2, ""),
+            ("+ Beta × prêmio de risco de mercado", f"{wacc.ref('beta', d)}*{wacc.ref('premio', d)}", PCT2, ""),
+            ("(=) Ke, o retorno que o acionista exige", wacc.ref("ke", d), PCT2, ""),
+            ("Custo da dívida depois do imposto", wacc.ref("kd_liquido", d), PCT2, ""),
+            ("Peso da dívida", wacc.ref("wd", d), PCT, ""),
+            ("WACC pelo CAPM (média de Ke e do custo da dívida)", wacc.ref("wacc", d), PCT2, ""),
+            ("(=) WACC em uso (o do cenário ou do ajuste manual)", wacc.ref("wacc_uso", d), PCT2, "é a taxa de desconto"),
+        ),
+        (
+            (f"FCFF de {ano}E", valor.ref("fcff", c2), MI, ""),
+            ("× Fator de desconto", valor.ref("fator", c2), "0.0000", "1 ÷ (1 + WACC) elevado aos anos até lá"),
+            (f"(=) Valor presente do FCFF de {ano}E", valor.ref("vp", c2), MI, ""),
+            (f"(=) Soma dos valores presentes de {anos[0]} a {anos[-1]}", valor.ref("soma_vp", d), MI, ""),
+        ),
+        (
+            (f"FCFF de {anos[-1]} ajustado (só repõe o que desgasta)", valor.ref("fcff_terminal", d), MI, ""),
+            ("Crescimento para sempre (g)", valor.ref("g", d), PCT2, "inflação de longo prazo"),
+            ("Valor terminal: FCFF × (1 + g) ÷ (WACC − g)", valor.ref("vt", d), MI, ""),
+            ("(=) Valor terminal a valor de hoje", valor.ref("vp_vt", d), MI, ""),
+        ),
+        (
+            ("Valor presente dos fluxos projetados", valor.ref("soma_vp", d), MI, ""),
+            ("+ Valor presente do valor terminal", valor.ref("vp_vt", d), MI, ""),
+            ("(=) Valor da empresa (EV)", valor.ref("ev", d), MI, ""),
+        ),
+        (
+            ("Valor da empresa (EV)", valor.ref("ev", d), MI, ""),
+            ("− Dívida líquida", valor.ref("divida_liquida", d), MI, "é dos credores"),
+            ("− Minoritários", valor.ref("minoritarios", d), MI, "é dos sócios das controladas"),
+            ("+ Investimentos em coligadas", valor.ref("investimentos", d), MI, "o FCFF não contou"),
+            ("(=) Valor do acionista (Equity Value)", valor.ref("equity", d), MI, ""),
+        ),
+        (
+            ("Valor do acionista", valor.ref("equity", d), MI, ""),
+            ("÷ Ações em circulação (milhões)", valor.ref("acoes", d), "#,##0.0", ""),
+            ("(=) Preço justo por ação", valor.ref("preco_justo", d), REAIS, ""),
+            ("Preço de mercado", valor.ref("preco", d), REAIS, ""),
+            ("Diferença", valor.ref("potencial", d), PCT, "preço justo ÷ preço de mercado − 1"),
+        ),
+    )  # fmt: skip
+    r = 4
+    for (titulo, texto), linhas in zip(PASSOS, contas, strict=True):
+        for c in (2, 3, 4):
+            ws.cell(r, c).fill = FUNDO_CABECALHO
+        ws.cell(r, 2, titulo).font = BRANCO
+        ws.cell(r + 1, 2, texto).alignment = QUEBRA
+        ws.merge_cells(start_row=r + 1, start_column=2, end_row=r + 1, end_column=4)
+        ws.row_dimensions[r + 1].height = 48
+        r += 2
+        for rotulo, origem, formato, nota in linhas:
+            resultado = rotulo.startswith("(=)")
+            ws.cell(r, 2, rotulo).font = NEGRITO if resultado else Font()
+            celula = ws.cell(r, 3, f"={origem}")
+            celula.number_format = formato
+            if resultado:
+                celula.font, celula.fill = NEGRITO, FUNDO_RESULTADO
+            if nota:
+                ws.cell(r, 4, nota).font = CINZA
+            r += 1
+        r += 1
+    ws.column_dimensions["A"].width = 2
+    ws.column_dimensions["B"].width = 66
+    ws.column_dimensions["C"].width = 16
+    ws.column_dimensions["D"].width = 60
+    ws.sheet_view.showGridLines = False
+
+
+def _aba_glossario(wb: Workbook) -> None:
+    ws = wb.create_sheet("Glossário")
+    ws.cell(1, 2, "Glossário").font = TITULO
+    ws.cell(2, 2, "O que é cada indicador, como se calcula e em que aba aparece.").font = CINZA
+    for c, texto in enumerate(("Termo", "O que é", "Como se calcula", "Onde ver"), start=2):
+        celula = ws.cell(4, c, texto)
+        celula.font, celula.fill = BRANCO, FUNDO_CABECALHO
+    for i, linha in enumerate(GLOSSARIO, start=5):
+        for c, texto in enumerate(linha, start=2):
+            celula = ws.cell(i, c, texto)
+            celula.alignment = QUEBRA
+            if c == 2:
+                celula.font = NEGRITO
+        ws.row_dimensions[i].height = 32
+    ws.column_dimensions["A"].width = 2
+    for letra, largura in (("B", 30), ("C", 70), ("D", 62), ("E", 18)):
+        ws.column_dimensions[letra].width = largura
+    ws.sheet_view.showGridLines = False
+    ws.freeze_panes = "C5"
 
 
 # --------------------------------------------------------------------------- Montagem
 
+ORDEM = [
+    "Painel", "Passo a passo", "Demonstrativos", "Projeção", "FCFF", "WACC", "Valor justo",
+    "Múltiplos", "Cenários", "Correlação", "Glossário", "Premissas", "Dados",
+]  # fmt: skip
 
-def gerar(ticker: str) -> Path:
-    """Monta e grava `saida/valuation_<TICKER>.xlsx`."""
-    dados = premissas.carregar(ticker)
-    base = modelo.carregar_base(ticker, dados)
-    mercado = pd.read_csv(modelo.MERCADO_CSV).set_index("ticker").loc[ticker]
+
+def montar() -> Workbook:
+    """Monta a planilha inteira, só com fórmulas (sem valores calculados)."""
+    todos: dict[str, dict[str, Any]] = {}
+    for ticker in TICKERS:
+        dados = premissas.carregar(ticker)
+        todos[ticker] = {
+            "dados": dados,
+            "cenarios": dados["cenarios"],
+            "premissas": dados["premissas"],
+            "base": modelo.carregar_base(ticker, dados),
+        }
+    anos: list[int] = todos[TICKERS[0]]["dados"]["anos"]
+    mercado = pd.read_csv(modelo.MERCADO_CSV).set_index("ticker")
 
     wb = Workbook()
-    wb.remove(wb.active)
-    prem, esc = _aba_premissas(wb, dados, base, mercado)
-    hist, col_base, col_ltm = _aba_historico(wb, ticker, esc)
-    proj = _aba_projecao(wb, dados, prem, esc, hist, col_base)
-    taxas = _aba_wacc(wb, esc, hist, col_ltm)
-    dcf_aba, dcf = _aba_dcf(wb, dados, esc, taxas, proj, hist, col_ltm)
-    _aba_multiplos(wb, ticker, dcf)
-    _aba_cenarios(wb, ticker, dados, esc, proj, dcf)
-    _aba_resumo(wb, dados, dcf_aba, dcf, proj)
+    painel = wb.active
+    painel.title = "Painel"
+    _aba_premissas(wb, todos, anos, mercado)
+    periodos = _aba_dados(wb)
+    hist, col_base, col_ltm = _aba_demonstrativos(wb, periodos)
 
+    # A Projeção precisa do FCFE e a aba FCFF precisa da Projeção: as linhas da FCFF são
+    # reservadas antes, e a aba é preenchida depois.
+    cols = list(range(COL_ANO1, COL_ANO1 + len(anos)))
+    fcff = Aba(wb.create_sheet("FCFF"), cols)
+    fcff.titulo(
+        "FCFF e FCFE",
+        "O caixa livre de cada ano, que é o ponto de partida do valuation. FCFF é o caixa da "
+        "empresa inteira; FCFE é a parte do acionista.",
+    )
+    _titulo_com_empresa(fcff.ws, "FCFF e FCFE")
+    fcff.cabecalho({**{c: f"{a}E" for c, a in zip(cols, anos, strict=True)}, **_explicacao(fcff)})
+    fcff.planejar(LINHAS_FCFF)
+
+    proj = _aba_projecao(wb, anos, hist, col_base, fcff)
+    _aba_fcff(fcff, anos, proj)
+    wacc = _aba_wacc(wb, hist, col_ltm)
+    valor = _aba_valor(wb, anos, wacc, fcff, proj, hist, col_ltm)
+    _aba_multiplos(wb, valor)
+    _aba_cenarios(wb, todos, anos, proj, valor)
+    _aba_correlacao(wb)
+    _aba_painel(painel, anos, wacc, valor, fcff)
+    _aba_passos(wb, anos, wacc, valor, fcff)
+    _aba_glossario(wb)
+
+    wb._sheets = [wb[nome] for nome in ORDEM]
+    wb.active = 0
+    return wb
+
+
+def recalcular(planilha: Path, destino: Path) -> Path:
+    """Abre no LibreOffice sem tela e salva com os valores calculados."""
+    soffice = shutil.which("soffice")
+    if soffice is None:
+        raise RuntimeError("LibreOffice (soffice) não encontrado")
+    subprocess.run(
+        [soffice, "--headless", "--calc", "--convert-to", "xlsx", "--outdir", destino, planilha],
+        check=True,
+        capture_output=True,
+        timeout=180,
+    )
+    return destino / planilha.name
+
+
+def gerar(pronta: bool = True) -> Path:
+    """Grava a planilha em saida/.
+
+    Com `pronta`, o LibreOffice abre o arquivo, calcula tudo e grava de novo: assim a
+    planilha já chega com os números em qualquer programa, inclusive em visualizadores
+    que não calculam fórmulas. Sem LibreOffice instalado, fica só com as fórmulas.
+    """
     SAIDA.mkdir(exist_ok=True)
-    destino = SAIDA / f"valuation_{ticker}.xlsx"
-    wb.save(destino)
-    return destino
+    wb = montar()
+    if pronta and shutil.which("soffice"):
+        with tempfile.TemporaryDirectory() as pasta:
+            bruta = Path(pasta) / "entrada" / ARQUIVO.name
+            bruta.parent.mkdir()
+            wb.save(bruta)
+            shutil.copy(recalcular(bruta, Path(pasta)), ARQUIVO)
+    else:
+        wb.save(ARQUIVO)
+    return ARQUIVO

@@ -20,18 +20,46 @@ CORPO = '<div class="wrap">'
 
 # Linhas do histórico que a página mostra.
 HISTORICO = (
+    # demonstração do resultado
     "receita",
-    "ebitda",
+    "custo",
+    "lucro_bruto",
+    "despesas_operacionais",
     "ebit",
+    "resultado_financeiro",
     "lucro_liquido",
-    "capex",
-    "da",
+    # balanço
+    "ativo_total",
+    "caixa_total",
+    "capital_de_giro",
+    "ativo_fixo",
+    "divida_bruta",
+    "patrimonio_liquido",
+    # fluxo de caixa
     "fco",
-    "divida_liquida",
+    "capex",
+    "dividendos_pagos",
+    "fcl_simples",
+    # indicadores
+    "da",
+    "ebitda",
+    "ebitda_recorrente",
+    "nopat",
+    "crescimento_receita",
+    "margem_bruta",
     "margem_ebitda",
+    "margem_ebitda_recorrente",
+    "margem_liquida",
+    "divida_liquida",
     "divida_liquida_ebitda",
     "roic",
     "roe",
+    "prazo_recebimento",
+    "prazo_estoque",
+    "prazo_pagamento",
+    "ciclo_caixa",
+    "capex_pct",
+    "despesas_pct",
 )
 
 
@@ -63,11 +91,16 @@ def _empresa(ticker: str) -> dict[str, Any]:
             "valor_de_mercado": base.valor_de_mercado,
         },
         "premissas": premissas.valores(dados),
-        "origens": {nome: p[nome]["origem"] for nome in p},
-        "cenarios": {c: dados["cenarios"][c] for c in ("pessimista", "otimista")},
+        "origens": {nome: p[nome]["origem"] for nome in p}
+        | {nome: c["origem"] for nome, c in dados["cenarios"].items()},
+        "cenarios": dados["cenarios"],
         "historico": {
             "periodos": list(h["periodo"]),
-            **{linha: [round(float(v), 4) for v in h[linha]] for linha in HISTORICO},
+            # Sem valor (primeiro ano de uma variação, por exemplo) vira null: NaN não é JSON.
+            **{
+                linha: [None if pd.isna(v) else round(float(v), 4) for v in h[linha]]
+                for linha in HISTORICO
+            },
         },
     }
 
@@ -78,7 +111,12 @@ def dados_da_pagina() -> dict[str, Any]:
     macro = pd.read_csv(MACRO_CSV)
     return {
         "empresas": {e.ticker: _empresa(e.ticker) for e in FOCO},
-        "rotulos": {**premissas.POR_ANO, **premissas.ESCALARES},
+        "rotulos": {**premissas.VARIAVEIS, **premissas.POR_ANO, **premissas.ESCALARES},
+        "nomes_cenarios": {
+            "pessimista": "Pessimista",
+            "moderado": "Moderado",
+            "otimista": "Otimista",
+        },
         "multiplos": json.loads(t.reset_index().to_json(orient="records")),
         "implicitos": json.loads(imp.to_json(orient="records")),
         "macro": json.loads(

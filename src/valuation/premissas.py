@@ -1,9 +1,14 @@
-"""Premissas do modelo: a proposta automática e o arquivo que o analista aprova.
+"""Premissas do modelo: os três cenários e o arquivo que o analista aprova.
 
-`propor` monta uma proposta neutra por regra, a partir do histórico e dos dados de
-mercado, e grava em `premissas/<ticker>.yaml` com a origem de cada número. O
-analista edita o arquivo e troca `status: proposta` por `status: aprovada`. A
-proposta nunca sobrescreve um arquivo aprovado.
+Três variáveis mudam com o cenário, e só elas: o crescimento da receita, a margem
+EBITDA e o WACC. Cada uma tem um valor pessimista, um moderado e um otimista, e
+pode ser ajustada à mão dentro dessa faixa. O resto (capex, depreciação, capital
+de giro, imposto) vale igual nos três cenários.
+
+`propor` monta a proposta por regra, a partir do histórico da própria empresa e
+dos dados de mercado, e grava em `premissas/<ticker>.yaml` com a origem de cada
+número. O analista edita o arquivo e troca `status: proposta` por
+`status: aprovada`; a partir daí a proposta não sobrescreve o arquivo.
 """
 
 from pathlib import Path
@@ -18,13 +23,19 @@ from valuation.empresas import PREMISSAS, empresa
 
 ANOS = [2026, 2027, 2028, 2029, 2030]
 ANO_BASE = "2025"
+CENARIOS = ("pessimista", "moderado", "otimista")
 
-# Uma lista com um valor por ano projetado.
+# As variáveis de cenário. `partida` é o nível de 2026, igual nos três cenários.
+VARIAVEIS = {
+    "crescimento_receita": "Crescimento da receita, ao ano (2027 a 2030)",
+    "margem_ebitda": "Margem EBITDA em 2030",
+    "ajuste_wacc": "WACC: pontos acima ou abaixo do CAPM",
+}
+COM_PARTIDA = ("crescimento_receita", "margem_ebitda")
+
+# Premissas iguais nos três cenários. Uma lista com um valor por ano projetado.
 POR_ANO = {
-    "crescimento_volume": "Crescimento do volume vendido",
-    "variacao_preco": "Variação do preço médio de venda",
-    "inflacao_custos": "Inflação dos custos e despesas",
-    "outras_pct": "Outras receitas/despesas operacionais (% da receita)",
+    "despesas_pct": "Despesas operacionais (% da receita)",
     "equivalencia": "Equivalência patrimonial (R$ milhões)",
     "capex_pct": "Investimento - capex (% da receita)",
     "depreciacao_pct": "Depreciação (% do ativo fixo inicial)",
@@ -47,9 +58,14 @@ ESCALARES = {
     "capex_perpetuidade": "Capex na perpetuidade (múltiplo da depreciação)",
     "outros_ajustes": "Outros passivos tratados como dívida (R$ milhões)",
 }
-# Premissas que os cenários deslocam, somando ao valor do cenário base.
-CENARIZAVEIS = ("crescimento_volume", "variacao_preco", "inflacao_custos")
-CENARIOS = ("pessimista", "base", "otimista")
+# O crescimento otimista vem do histórico, mas parte dele foi aquisição: fica limitado
+# a este tanto acima da inflação.
+TETO_CRESCIMENTO_REAL = 0.04
+
+
+def _pct(valor: float, casas: int = 1) -> str:
+    """Percentual escrito como se lê em português: vírgula decimal."""
+    return f"{valor * 100:.{casas}f}%".replace(".", ",")
 
 
 def caminho(ticker: str) -> Path:
@@ -62,6 +78,15 @@ def _convergir(inicio: float, fim: float) -> list[float]:
     return [inicio + (fim - inicio) * i / n for i in range(len(ANOS))]
 
 
+def _cenario(pessimista: float, moderado: float, otimista: float, origem: str) -> dict[str, Any]:
+    return {
+        "pessimista": round(float(pessimista), 4),
+        "moderado": round(float(moderado), 4),
+        "otimista": round(float(otimista), 4),
+        "origem": origem,
+    }
+
+
 def propor(ticker: str) -> dict[str, Any]:
     h = historico.carregar()
     h = h[h["ticker"] == ticker].set_index("periodo")
@@ -72,8 +97,8 @@ def propor(ticker: str) -> dict[str, Any]:
     tres = h.loc[[str(a) for a in range(2023, 2026)]]
     m = macro.carregar()
     mercado = pd.read_csv(MERCADO_CSV).set_index("ticker").loc[ticker]
-    ipca = [m[f"ipca_{a}"] for a in ANOS]
     n = len(ANOS)
+    partida = f"{ANOS[0]}: nível dos últimos 12 meses ({ltm_rotulo}). "
 
     def por_ano(valores: list[float], origem: str) -> dict[str, Any]:
         return {"valores": [round(float(v), 4) for v in valores], "origem": origem}
@@ -81,24 +106,63 @@ def propor(ticker: str) -> dict[str, Any]:
     def escalar(valor: float, origem: str) -> dict[str, Any]:
         return {"valor": round(float(valor), 4), "origem": origem}
 
-    inflacao = f"{ANOS[1]} em diante: IPCA esperado no Focus"
+    # --- as três variáveis de cenário
+    inflacao = sum(m[f"ipca_{a}"] for a in ANOS[1:]) / (n - 1)
+    primeiro = h.index[0]
+    anos_de_historia = int(ANO_BASE) - int(primeiro)
+    crescimento_historico = (base["receita"] / h.loc[primeiro, "receita"]) ** (
+        1 / anos_de_historia
+    ) - 1
+    teto = inflacao + TETO_CRESCIMENTO_REAL
+    sobre_o_teto = (
+        f", limitado a {_pct(TETO_CRESCIMENTO_REAL, 0)} acima da inflação porque parte veio de"
+        " aquisições."
+        if crescimento_historico > teto
+        else "."
+    )
+    margens = sorted(cinco["margem_ebitda_recorrente"])
+    amplitude = (m["juro_prefixado_maximo"] - m["juro_prefixado_minimo"]) / 2
+
+    cenarios = {
+        "crescimento_receita": {
+            "partida": round(float(ltm["receita"] / base["receita"] - 1), 4),
+            **_cenario(
+                0.0,
+                inflacao,
+                min(crescimento_historico, teto),
+                partida + "Pessimista: receita parada, ou seja, queda real. Moderado: inflação"
+                f" esperada no Focus para {ANOS[1]}-{ANOS[-1]}, crescimento real zero. Otimista:"
+                f" crescimento médio da receita de {primeiro} a {ANO_BASE}"
+                f" ({_pct(crescimento_historico, 1)} ao ano){sobre_o_teto}",
+            ),
+        },
+        "margem_ebitda": {
+            "partida": round(float(ltm["margem_ebitda_recorrente"]), 4),
+            **_cenario(
+                margens[1],
+                margens[2],
+                margens[3],
+                partida + f"Daí até {ANOS[-1]} em linha reta. Faixa: margem EBITDA de 2021 a"
+                " 2025, sem perdas por recuperabilidade. Pessimista é o segundo pior ano,"
+                " moderado a mediana e otimista o segundo melhor.",
+            ),
+        },
+        "ajuste_wacc": _cenario(
+            amplitude,
+            0.0,
+            -amplitude,
+            "Moderado: o WACC que sai do CAPM. O juro prefixado longo andou de"
+            f" {_pct(m['juro_prefixado_minimo'])} a {_pct(m['juro_prefixado_maximo'])} nos"
+            " últimos dois anos; pessimista e otimista deslocam o WACC em metade dessa amplitude.",
+        ),
+    }
+
+    # --- o que vale igual nos três cenários
     p: dict[str, Any] = {
-        "crescimento_volume": por_ano(
-            [0.0] * n,
-            "Volume constante. A CVM não publica toneladas: usar o guidance da empresa.",
-        ),
-        "variacao_preco": por_ano(
-            [ltm["receita"] / base["receita"] - 1, *ipca[1:]],
-            f"{ANOS[0]}: receita dos últimos 12 meses ({ltm_rotulo}) sobre {ANO_BASE}. {inflacao}"
-            " (preço constante em termos reais).",
-        ),
-        "inflacao_custos": por_ano(
-            [ltm["custo_caixa"] / base["custo_caixa"] - 1, *ipca[1:]],
-            f"{ANOS[0]}: custo caixa dos últimos 12 meses sobre {ANO_BASE}. {inflacao}.",
-        ),
-        "outras_pct": por_ano(
-            _convergir(ltm["outras_pct"], cinco["outras_pct"].median()),
-            "Do nível dos últimos 12 meses até a mediana de 2021-2025.",
+        "despesas_pct": por_ano(
+            _convergir(ltm["despesas_pct"], cinco["despesas_pct"].median()),
+            "Vendas, administrativas e outras, sem perdas por recuperabilidade. Do nível dos"
+            " últimos 12 meses até a mediana de 2021-2025.",
         ),
         "equivalencia": por_ano(
             [cinco["equivalencia"].median()] * n, "Mediana de 2021-2025, mantida."
@@ -116,12 +180,14 @@ def propor(ticker: str) -> dict[str, Any]:
         p[prazo] = por_ano([base[prazo]] * n, f"Prazo de {ANO_BASE}, mantido.")
 
     divida = ltm["divida_bruta"]
+    beta_2a = f"{mercado['beta_2a']:.2f}".replace(".", ",")
+    implicito = tres["custo_implicito_divida"].median()
     p |= {
         "aliquota_ir": escalar(historico.ALIQUOTA_IR, "Alíquota nominal: IRPJ 25% + CSLL 9%."),
         "custo_divida": escalar(
             m["juro_prefixado_longo"],
-            "Piso: a taxa do Tesouro prefixado de dez anos, sem spread de crédito."
-            f" Custo implícito mediano 2023-2025: {tres['custo_implicito_divida'].median():.1%}.",
+            "A taxa do Tesouro prefixado de dez anos, a mesma para as três empresas."
+            f" Custo implícito mediano 2023-2025: {_pct(implicito)}.",
         ),
         "rendimento_caixa": escalar(
             tres["rendimento_implicito_caixa"].median(),
@@ -137,7 +203,7 @@ def propor(ticker: str) -> dict[str, Any]:
         "beta": escalar(
             mercado["beta_5a"],
             "Regressão de 5 anos, retornos semanais contra o BOVA11, preços sem ajuste de"
-            f" proventos. Beta de 2 anos: {mercado['beta_2a']:.2f}.",
+            f" proventos. Beta de 2 anos: {beta_2a}.",
         ),
         "premio_mercado": escalar(
             m["premio_mercado_maduro"],
@@ -150,7 +216,7 @@ def propor(ticker: str) -> dict[str, Any]:
             " mercado.",
         ),
         "crescimento_perpetuo": escalar(
-            ipca[-1], f"IPCA esperado para {ANOS[-1]}: crescimento real zero."
+            m[f"ipca_{ANOS[-1]}"], f"IPCA esperado para {ANOS[-1]}: crescimento real zero."
         ),
         "capex_perpetuidade": escalar(1.0, "Na perpetuidade a empresa reinveste o que deprecia."),
         "outros_ajustes": escalar(
@@ -164,18 +230,16 @@ def propor(ticker: str) -> dict[str, Any]:
         "data_base": ltm["data_balanco"],
         "ano_base": int(ANO_BASE),
         "anos": ANOS,
-        "premissas": p,
-        "cenarios": {
-            "origem": "Choque de 5% no preço em 2027, mantido depois. Ilustrativo.",
-            "pessimista": {"variacao_preco": [0.0, -0.05, 0.0, 0.0, 0.0]},
-            "otimista": {"variacao_preco": [0.0, 0.05, 0.0, 0.0, 0.0]},
-        },
+        "cenarios": cenarios,
+        "premissas": {nome: p[nome] for nome in (*POR_ANO, *ESCALARES)},
     }
 
 
 def salvar_proposta(ticker: str) -> Path:
     destino = caminho(ticker)
-    if destino.exists() and carregar(ticker)["status"] == "aprovada":
+    # Lê só o status, sem validar: o arquivo pode ser de um formato anterior.
+    atual = yaml.safe_load(destino.read_text(encoding="utf-8")) if destino.exists() else {}
+    if atual.get("status") == "aprovada":
         raise RuntimeError(f"{destino.name} já foi aprovado; a proposta não o sobrescreve")
     PREMISSAS.mkdir(exist_ok=True)
     # default_flow_style=None deixa cada lista de anos numa linha só, mais fácil de editar.
@@ -195,15 +259,49 @@ def carregar(ticker: str) -> dict[str, Any]:
     for nome in ESCALARES:
         if "valor" not in dados["premissas"][nome]:
             raise ValueError(f"{ticker}: falta o valor de {nome}")
+    for nome in VARIAVEIS:
+        exigidos = {*CENARIOS, *(("partida",) if nome in COM_PARTIDA else ())}
+        faltando = exigidos - set(dados["cenarios"][nome])
+        if faltando:
+            raise ValueError(f"{ticker}: cenário de {nome} sem {sorted(faltando)}")
     return dados
 
 
-def valores(dados: dict[str, Any], cenario: str = "base") -> dict[str, Any]:
+def faixa(dados: dict[str, Any], nome: str) -> tuple[float, float]:
+    """Menor e maior valor que a variável pode assumir: os extremos dos cenários."""
+    valores_cenario = [dados["cenarios"][nome][c] for c in CENARIOS]
+    return min(valores_cenario), max(valores_cenario)
+
+
+def escolha(
+    dados: dict[str, Any], cenario: str = "moderado", manual: dict[str, float] | None = None
+) -> dict[str, float]:
+    """Valor de cada variável: o do cenário, ou o ajuste manual preso à faixa."""
+    saida = {nome: float(dados["cenarios"][nome][cenario]) for nome in VARIAVEIS}
+    for nome, valor in (manual or {}).items():
+        minimo, maximo = faixa(dados, nome)
+        saida[nome] = min(max(float(valor), minimo), maximo)
+    return saida
+
+
+def valores(
+    dados: dict[str, Any], cenario: str = "moderado", manual: dict[str, float] | None = None
+) -> dict[str, Any]:
     """Premissas prontas para o modelo: listas por ano e escalares, já no cenário."""
     p = dados["premissas"]
     saida: dict[str, Any] = {nome: list(p[nome]["valores"]) for nome in POR_ANO}
     saida |= {nome: p[nome]["valor"] for nome in ESCALARES}
-    if cenario != "base":
-        for nome, deltas in dados["cenarios"][cenario].items():
-            saida[nome] = [v + d for v, d in zip(saida[nome], deltas, strict=True)]
+    e = escolha(dados, cenario, manual)
+    n = len(dados["anos"])
+    cen = dados["cenarios"]
+    # 2026 já está quase todo realizado: parte do nível atual em qualquer cenário.
+    saida["crescimento_receita"] = [
+        cen["crescimento_receita"]["partida"],
+        *[e["crescimento_receita"]] * (n - 1),
+    ]
+    inicio = cen["margem_ebitda"]["partida"]
+    saida["margem_ebitda"] = [
+        inicio + (e["margem_ebitda"] - inicio) * i / (n - 1) for i in range(n)
+    ]
+    saida["ajuste_wacc"] = e["ajuste_wacc"]
     return saida

@@ -63,6 +63,26 @@ def _tesouro(atualizar: bool) -> list[dict[str, object]]:
                 "fonte": URL_TESOURO,
             }
         )
+
+    # Quanto o juro longo andou nos últimos dois anos: é essa amplitude que separa o WACC
+    # dos cenários pessimista e otimista. Em cada dia vale o prefixado mais longo à venda.
+    prefixado = df[df["Tipo Titulo"] == "Tesouro Prefixado com Juros Semestrais"]
+    inicio = df["data"].max() - pd.DateOffset(years=2)
+    recente = prefixado[prefixado["data"] >= inicio]
+    longo = recente.loc[recente.groupby("data")["vencimento"].idxmax()]
+    for indicador, valor, nome in (
+        ("juro_prefixado_minimo", longo["Taxa Compra Manha"].min(), "Mínimo"),
+        ("juro_prefixado_maximo", longo["Taxa Compra Manha"].max(), "Máximo"),
+    ):
+        linhas.append(
+            {
+                "indicador": indicador,
+                "valor": valor / 100,
+                "data": longo["data"].max().date().isoformat(),
+                "detalhe": f"{nome} do prefixado mais longo nos últimos dois anos",
+                "fonte": URL_TESOURO,
+            }
+        )
     return linhas
 
 

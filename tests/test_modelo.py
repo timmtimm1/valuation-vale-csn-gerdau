@@ -36,7 +36,8 @@ def test_ponte_do_valor_da_empresa_ao_preco(rodada: dict) -> None:
 
 def test_wacc_fica_entre_divida_e_capital_proprio(rodada: dict) -> None:
     v = rodada["valuation"]
-    assert v["kd_liquido"] < v["wacc"] < v["ke"]
+    assert v["kd_liquido"] < v["wacc_capm"] < v["ke"]
+    assert v["wacc"] == pytest.approx(v["wacc_capm"] + v["ajuste_wacc"])
 
 
 def test_wacc_maior_derruba_o_preco_e_g_maior_sobe(rodada: dict) -> None:
@@ -45,12 +46,41 @@ def test_wacc_maior_derruba_o_preco_e_g_maior_sobe(rodada: dict) -> None:
     assert grade.iloc[2, :].is_monotonic_increasing  # andando nas colunas, o g sobe
 
 
-def test_preco_mais_alto_vale_mais(rodada: dict) -> None:
+def test_pessimista_moderado_otimista_em_ordem(rodada: dict) -> None:
     ticker, dados = rodada["ticker"], rodada["dados"]
     precos = [
         modelo.rodar(ticker, dados, c)["valuation"]["preco_justo"] for c in premissas.CENARIOS
     ]
     assert precos == sorted(precos)
+
+
+def test_ajuste_manual_fica_preso_na_faixa(rodada: dict) -> None:
+    dados = rodada["dados"]
+    minimo, maximo = premissas.faixa(dados, "margem_ebitda")
+    assert premissas.escolha(dados, "moderado", {"margem_ebitda": 0.99})["margem_ebitda"] == maximo
+    assert premissas.escolha(dados, "moderado", {"margem_ebitda": -1.0})["margem_ebitda"] == minimo
+    meio = (minimo + maximo) / 2
+    assert premissas.escolha(dados, "moderado", {"margem_ebitda": meio})["margem_ebitda"] == meio
+
+
+def test_2026_e_igual_nos_tres_cenarios(rodada: dict) -> None:
+    # o primeiro ano parte do realizado: receita e margem não dependem do cenário
+    ticker, dados = rodada["ticker"], rodada["dados"]
+    primeiro = dados["anos"][0]
+    receitas, margens = set(), set()
+    for c in premissas.CENARIOS:
+        proj = modelo.rodar(ticker, dados, c)["projecao"]
+        receitas.add(round(proj.loc["receita", primeiro], 6))
+        margens.add(round(proj.loc["margem_ebitda", primeiro], 9))
+    assert len(receitas) == 1 and len(margens) == 1
+
+
+def test_margem_projetada_e_a_do_cenario(rodada: dict) -> None:
+    dados, proj = rodada["dados"], rodada["projecao"]
+    ultimo = dados["anos"][-1]
+    assert proj.loc["margem_ebitda", ultimo] == pytest.approx(
+        dados["cenarios"]["margem_ebitda"]["moderado"]
+    )
 
 
 def test_desconto_de_um_fluxo_conhecido() -> None:

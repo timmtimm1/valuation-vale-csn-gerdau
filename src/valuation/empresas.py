@@ -39,6 +39,13 @@ EMPRESAS: tuple[Empresa, ...] = (
     Empresa("CMIN3", "CSN Mineração", "08.902.291/0001-15", "Mineração", False),
 )
 
+# Eventos que mudam o preço sem mudar o valor da empresa. Sem o ajuste, a bonificação
+# aparece como uma queda de 17% num dia. (ticker, primeiro pregão sem o direito, fator)
+EVENTOS: tuple[tuple[str, str, float], ...] = (
+    ("GGBR4", "2024-04-18", 1.2),  # bonificação de uma ação nova para cada cinco
+    ("GGBR3", "2024-04-18", 1.2),
+)
+
 POR_TICKER = {e.ticker: e for e in EMPRESAS}
 POR_CNPJ = {e.cnpj: e for e in EMPRESAS}
 FOCO = tuple(e for e in EMPRESAS if e.foco)

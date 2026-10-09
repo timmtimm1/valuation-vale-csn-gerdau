@@ -12,24 +12,21 @@ const Modelo = (() => {
     let a = { ...base.ano };
     const tIr = p.aliquota_ir;
     anos.forEach((_, i) => {
-      const volume = 1 + p.crescimento_volume[i];
-      const custos = 1 + p.inflacao_custos[i];
       const c = {};
 
       // DRE
-      c.receita = a.receita * volume * (1 + p.variacao_preco[i]);
-      // Custo acompanha volume e inflação de custos, não o preço de venda.
-      c.custo_caixa = a.custo_caixa * volume * custos;
-      c.despesas_vendas = a.despesas_vendas * volume * custos;
-      c.despesas_ga = a.despesas_ga * custos;
-      c.outras_operacionais = c.receita * p.outras_pct[i];
+      c.receita = a.receita * (1 + p.crescimento_receita[i]);
+      // A margem EBITDA é premissa do cenário. As despesas operacionais seguem a receita
+      // e o custo dos produtos é o que sobra para a margem fechar.
+      c.ebitda = c.receita * p.margem_ebitda[i];
+      c.despesas = c.receita * p.despesas_pct[i];
       c.equivalencia = p.equivalencia[i];
-      c.ebitda =
-        c.receita - c.custo_caixa - c.despesas_vendas - c.despesas_ga +
-        c.outras_operacionais + c.equivalencia;
+      c.custo_caixa = c.receita - c.despesas + c.equivalencia - c.ebitda;
       c.da = a.ativo_fixo * p.depreciacao_pct[i];
       c.ebit = c.ebitda - c.da;
-      c.resultado_financeiro = a.caixa_total * p.rendimento_caixa - a.divida_bruta * p.custo_divida;
+      c.receita_financeira = a.caixa_total * p.rendimento_caixa;
+      c.despesa_financeira = a.divida_bruta * p.custo_divida;
+      c.resultado_financeiro = c.receita_financeira - c.despesa_financeira;
       c.lair = c.ebit + c.resultado_financeiro;
       c.ir = Math.max(0, c.lair - c.equivalencia) * tIr;
       c.lucro_liquido = c.lair - c.ir;
@@ -82,7 +79,17 @@ const Modelo = (() => {
     const ke = p.juro_sem_risco + p.beta * p.premio_mercado + p.premio_adicional;
     const kdLiquido = p.custo_divida * (1 - p.aliquota_ir);
     const wd = p.peso_divida;
-    return { ke, kd_liquido: kdLiquido, wacc: ke * (1 - wd) + kdLiquido * wd };
+    const waccCapm = ke * (1 - wd) + kdLiquido * wd;
+    // O cenário desloca o custo de capital inteiro: o mesmo tanto no WACC e no Ke.
+    const ajuste = p.ajuste_wacc;
+    return {
+      ke,
+      kd_liquido: kdLiquido,
+      wacc_capm: waccCapm,
+      ajuste_wacc: ajuste,
+      wacc: waccCapm + ajuste,
+      ke_usado: ke + ajuste,
+    };
   }
 
   // O primeiro ano só conta pela fração que falta; os fluxos caem no meio do período.
@@ -113,7 +120,7 @@ const Modelo = (() => {
     const fcfeTerminal =
       proj.lucro_liquido[u] - proj.equivalencia[u] + proj.da[u] - capexTerminal -
       proj.variacao_giro[u] + proj.captacao_liquida[u];
-    const [vpE, vpETerminal] = valorPresente(proj.fcfe, fcfeTerminal, k.ke, g, base.fracao_ano1);
+    const [vpE, vpETerminal] = valorPresente(proj.fcfe, fcfeTerminal, k.ke_usado, g, base.fracao_ano1);
     const equityFcfe = vpE + vpETerminal - ponte.minoritarios + ponte.investimentos - p.outros_ajustes;
     const preco = equity / base.acoes;
     return {
@@ -152,7 +159,39 @@ const Modelo = (() => {
     };
   }
 
-  return { projetar, custoDeCapital, avaliar, sensibilidade };
+  // Mesma regra de premissas.valores() no Python. `escolha` traz o valor de cada uma das
+  // três variáveis de cenário; a função prende cada valor à faixa pessimista-otimista e
+  // monta as listas por ano que o modelo lê.
+  function premissas(empresa, escolha) {
+    const cen = empresa.cenarios;
+    const n = empresa.anos.length;
+    const preso = (nome) => {
+      const [minimo, maximo] = faixa(empresa, nome);
+      return Math.min(Math.max(escolha[nome], minimo), maximo);
+    };
+    const p = structuredClone(empresa.premissas);
+    const crescimento = preso("crescimento_receita");
+    // 2026 já está quase todo realizado: parte do nível atual em qualquer cenário.
+    p.crescimento_receita = [cen.crescimento_receita.partida, ...Array(n - 1).fill(crescimento)];
+    const inicio = cen.margem_ebitda.partida;
+    const margem = preso("margem_ebitda");
+    p.margem_ebitda = Array.from({ length: n }, (_, i) => inicio + ((margem - inicio) * i) / (n - 1));
+    p.ajuste_wacc = preso("ajuste_wacc");
+    return p;
+  }
+
+  // Extremos dos três cenários: é dentro deles que o ajuste manual pode andar.
+  function faixa(empresa, nome) {
+    const c = empresa.cenarios[nome];
+    const valores = [c.pessimista, c.moderado, c.otimista];
+    return [Math.min(...valores), Math.max(...valores)];
+  }
+
+  function doCenario(empresa, cenario) {
+    return Object.fromEntries(Object.keys(empresa.cenarios).map((nome) => [nome, empresa.cenarios[nome][cenario]]));
+  }
+
+  return { projetar, custoDeCapital, avaliar, sensibilidade, premissas, faixa, doCenario };
 })();
 
 if (typeof module !== "undefined") module.exports = Modelo;
