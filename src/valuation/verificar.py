@@ -74,6 +74,8 @@ def conferir(ticker: str) -> list[str]:
     rotulos = {
         "receita": "Receita líquida",
         "ebitda": "EBITDA",
+        "custo_caixa": "(-) Custo dos produtos (sem depreciação)",
+        "despesas": "(-) Despesas operacionais (vendas, administrativas e outras)",
         "ebit": "EBIT",
         "lucro_liquido": "Lucro líquido",
         "nopat": "NOPAT (EBIT sem equivalência, após imposto)",
@@ -119,8 +121,9 @@ def conferir(ticker: str) -> list[str]:
     h = h[h["ticker"] == ticker].reset_index(drop=True)
     for nome, rotulo in {
         "ebitda": "EBITDA (EBIT + depreciação)",
-        "nopat": "NOPAT (lucro operacional após imposto)",
+        "nopat": "NOPAT (lucro operacional após imposto de 34%)",
         "margem_ebitda": "Margem EBITDA",
+        "margem_ebitda_recorrente": "Margem EBITDA sem perdas por recuperabilidade",
         "prazo_estoque": "Prazo médio de estoque (dias)",
         "divida_liquida_ebitda": "Dívida líquida / EBITDA",
         "roic": "ROIC (NOPAT / capital de giro + ativo fixo)",
@@ -133,9 +136,44 @@ def conferir(ticker: str) -> list[str]:
 
     # Cenários: a planilha viva bate com o comparativo e o caixa fecha
     ws = wb["Cenários"]
-    linha_xl = _linha(ws, "Diferença para o comparativo acima (zero se as premissas não mudaram)")
+    linha_xl = _linha(ws, "Diferença para o comparativo acima (zero sem ajuste manual)")
     comparar("Cenários: vivo x comparativo", ws.cell(linha_xl, 4).value, 0.0)
     linha_xl = _linha(ws, "Checagem: bate com a variação de caixa da projeção (zero)")
     for i in range(len(proj.columns)):
         comparar(f"Cenários: caixa {proj.columns[i]}", ws.cell(linha_xl, 4 + i).value, 0.0)
+
+    # Seletor e ajuste manual: mexer na planilha tem de dar o mesmo preço que o Python.
+    for cenario, manual in SIMULACOES:
+        esperado = modelo.rodar(ticker, dados, cenario, manual)["valuation"]["preco_justo"]
+        obtido = _preco_simulado(ticker, cenario, manual)
+        comparar(f"Simulação {cenario} {manual or ''}", obtido, esperado)
     return problemas
+
+
+# Os dois cenários extremos, um ajuste manual dentro da faixa e um fora dela, que a
+# planilha tem de prender no limite como o Python faz.
+SIMULACOES: tuple[tuple[str, dict[str, float]], ...] = (
+    ("pessimista", {}),
+    ("otimista", {}),
+    ("moderado", {"crescimento_receita": 0.02, "ajuste_wacc": 0.005}),
+    ("pessimista", {"margem_ebitda": 0.99}),
+)
+NOMES = {"pessimista": "Pessimista", "moderado": "Moderado", "otimista": "Otimista"}
+COLUNA_MANUAL = 8
+
+
+def _preco_simulado(ticker: str, cenario: str, manual: dict[str, float]) -> Any:
+    """Troca o cenário e os ajustes manuais numa cópia da planilha, recalcula e lê o preço."""
+    wb = load_workbook(SAIDA / f"valuation_{ticker}.xlsx")
+    ws = wb["Premissas"]
+    ws["D4"].value = NOMES[cenario]
+    for nome, valor in manual.items():
+        ws.cell(_linha(ws, premissas.VARIAVEIS[nome]), COLUNA_MANUAL).value = valor
+    with tempfile.TemporaryDirectory() as pasta:
+        entrada = Path(pasta) / "entrada"
+        entrada.mkdir()
+        copia = entrada / f"valuation_{ticker}.xlsx"
+        wb.save(copia)
+        calculada = load_workbook(recalcular(copia, Path(pasta)), data_only=True)
+    dcf = calculada["DCF"]
+    return dcf.cell(_linha(dcf, "Preço justo por ação"), 4).value
