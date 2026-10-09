@@ -40,6 +40,7 @@ select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "SIM", "PTH", "RUF"]
 # Textos mostrados na planilha: frases longas e sinais tipográficos (−, ×) de propósito.
 "src/valuation/explicacoes.py" = ["E501", "RUF001"]
 "src/valuation/planilha.py" = ["E501", "RUF001"]
+"src/valuation/registro.py" = ["E501", "RUF001"]  # tabelas e links em Markdown
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

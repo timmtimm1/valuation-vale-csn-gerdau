@@ -60,3 +60,16 @@ def pagina() -> None:
     from valuation import site
 
     typer.echo(site.construir())
+
+
+@app.command()
+def registrar(
+    dia: str = typer.Option(None, help="Data da análise, AAAA-MM-DD. Padrão: hoje."),
+) -> None:
+    """Escreve FONTES.md e a fotografia do dia em analises/."""
+    from datetime import date
+
+    from valuation import registro
+
+    typer.echo(registro.fontes())
+    typer.echo(registro.fotografia(date.fromisoformat(dia) if dia else None))
