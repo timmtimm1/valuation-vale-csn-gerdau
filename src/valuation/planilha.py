@@ -1821,8 +1821,8 @@ def _aba_painel(ws: Worksheet, anos: list[int], wacc: Aba, valor: Aba, fcff: Aba
     ws.cell(
         3,
         2,
-        "Estudo acadêmico e de portfólio, com dados públicos da CVM e da B3. Não é recomendação "
-        "de compra ou venda. As premissas são uma proposta por regra, ainda não revisada.",
+        "Isto não é recomendação de investimento. É uma análise feita com os dados que as próprias "
+        "empresas divulgam e com simulações que juntam dados reais e dados projetados.",
     ).font = Font(italic=True, color="C00000")
 
     # Listas das duas escolhas, fora da área de leitura.
