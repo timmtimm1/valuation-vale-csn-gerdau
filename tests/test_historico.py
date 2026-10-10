@@ -80,3 +80,12 @@ def test_quem_usa_a_linha_da_dre_continua_com_ela(h: pd.DataFrame) -> None:
 def test_alavancagem_usa_o_ebitda_sem_baixas(h: pd.DataFrame) -> None:
     ano = _linha(h, "VALE3", "2025")
     assert ano["divida_liquida_ebitda"] == pytest.approx(61_828 / 74_422, abs=1e-4)
+
+
+def test_obrigacoes_fora_da_divida_saem_das_contas_do_balanco(h: pd.DataFrame) -> None:
+    ltm = h[h["periodo"].str.startswith("LTM")].set_index("ticker")["obrigacoes_extras"]
+    # Vale, junho de 2026: Brumadinho (4.178 + 5.007) e Mariana (3.424 + 7.429).
+    assert ltm["VALE3"] == pytest.approx(4_178 + 5_007 + 3_424 + 7_429)
+    # CSN: passivos de contratos, circulante e não circulante.
+    assert ltm["CSNA3"] == pytest.approx(13_101.3, abs=0.1)
+    assert ltm["GGBR4"] == 0 and ltm["USIM5"] == 0

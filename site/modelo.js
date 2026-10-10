@@ -142,6 +142,9 @@ const Modelo = (() => {
       potencial: preco / base.preco - 1,
       equity_fcfe: equityFcfe,
       preco_fcfe: equityFcfe / base.acoes,
+      // Aviso, não resultado: o preço se as obrigações fora da dívida fossem dívida.
+      obrigacoes_extras: p.obrigacoes_extras,
+      preco_com_obrigacoes: (equity - p.obrigacoes_extras) / base.acoes,
       ev_ebitda_implicito: ev / proj.ebitda[0],
     };
   }

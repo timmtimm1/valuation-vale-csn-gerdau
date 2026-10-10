@@ -34,6 +34,14 @@ def test_ponte_do_valor_da_empresa_ao_preco(rodada: dict) -> None:
     assert v["preco_justo"] == pytest.approx(equity / base.acoes)
 
 
+def test_obrigacoes_fora_da_divida_sao_aviso_e_nao_mudam_o_preco(rodada: dict) -> None:
+    v, base = rodada["valuation"], rodada["base"]
+    assert v["outros_ajustes"] == 0, "o aviso não pode ter virado dívida"
+    com = (v["equity"] - v["obrigacoes_extras"]) / base.acoes
+    assert v["preco_com_obrigacoes"] == pytest.approx(com)
+    assert v["preco_com_obrigacoes"] <= v["preco_justo"]
+
+
 def test_wacc_fica_entre_divida_e_capital_proprio(rodada: dict) -> None:
     v = rodada["valuation"]
     assert v["kd_liquido"] < v["wacc_capm"] < v["ke"]

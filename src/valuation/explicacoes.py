@@ -165,6 +165,8 @@ LINHAS: dict[str, str] = {
     "v_preco": "Último fechamento na B3.",
     "v_potencial": "Preço justo ÷ preço de mercado − 1.",
     "v_peso_vt": "Quanto do valor da empresa vem de depois de 2030. Quanto maior, mais o resultado depende do longo prazo.",
+    "v_obrigacoes": "Aviso. Obrigações grandes que o balanço não chama de dívida: provisões de Brumadinho e de Mariana na Vale, adiantamentos de clientes na CSN. Não entram no preço justo.",
+    "v_preco_com_obrigacoes": "Aviso. (Valor do acionista − essas obrigações) ÷ ações: quanto o preço justo cairia se elas fossem dívida.",
     "v_ev_ebitda": "Valor da empresa ÷ EBITDA de 2026: o múltiplo que o DCF está pagando.",
     "v_fcfe": "O caixa livre do acionista de cada ano (aba FCFF).",
     "v_fator_ke": "1 ÷ (1 + Ke) elevado ao número de anos.",

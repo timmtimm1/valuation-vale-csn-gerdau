@@ -67,6 +67,7 @@ FORMATO_PREMISSA = {
     "equivalencia": MI,
     "captacao_liquida": MI,
     "outros_ajustes": MI,
+    "obrigacoes_extras": MI,
     "prazo_recebimento": DIAS,
     "prazo_estoque": DIAS,
     "prazo_pagamento": DIAS,
@@ -1281,6 +1282,17 @@ def _aba_valor(
     )
     unico("peso_vt", "Peso do valor terminal no valor da empresa", f"={x('vp_vt')}/{x('ev')}", PCT)
     unico(
+        "obrigacoes",
+        "Aviso: obrigações fora da dívida (não entram no preço justo)",
+        f"={P('obrigacoes_extras')}",
+    )
+    unico(
+        "preco_com_obrigacoes",
+        "Aviso: preço por ação se essas obrigações fossem dívida",
+        f"=({x('equity')}-{x('obrigacoes')})/{x('acoes')}",
+        REAIS,
+    )
+    unico(
         "ev_ebitda",
         f"EV / EBITDA {anos[0]}E implícito",
         f"={x('ev')}/{proj.ref('ebitda', cols[0])}",
@@ -1942,6 +1954,8 @@ def _aba_painel(ws: Worksheet, anos: list[int], wacc: Aba, valor: Aba, fcff: Aba
         ("Valor do acionista", valor.ref("equity", d), MI, "EV menos dívida líquida e minoritários, mais investimentos."),
         ("Peso do valor terminal", valor.ref("peso_vt", d), PCT, f"Quanto do valor vem de depois de {anos[-1]}."),
         ("Preço pelo fluxo do acionista (FCFE)", valor.ref("preco_fcfe", d), REAIS, "Conferência por outro caminho: deve ficar perto do preço justo."),
+        ("Aviso: obrigações fora da dívida", valor.ref("obrigacoes", d), MI, "Provisões de Brumadinho e Mariana na Vale, adiantamentos de clientes na CSN. Não entram no preço justo."),
+        ("Aviso: preço se elas fossem dívida", valor.ref("preco_com_obrigacoes", d), REAIS, "Quanto valeria a ação tirando essas obrigações. Igual ao preço justo quando não há nenhuma."),
     )  # fmt: skip
     for i, (rotulo, origem, formato, texto) in enumerate(resultados, start=1):
         ws.cell(r + i, 2, rotulo).font = NEGRITO if i == 1 else Font()

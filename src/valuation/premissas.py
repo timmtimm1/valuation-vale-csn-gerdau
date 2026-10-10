@@ -57,6 +57,7 @@ ESCALARES = {
     "crescimento_perpetuo": "Crescimento na perpetuidade (g)",
     "capex_perpetuidade": "Capex na perpetuidade (múltiplo da depreciação)",
     "outros_ajustes": "Outros passivos tratados como dívida (R$ milhões)",
+    "obrigacoes_extras": "Aviso: obrigações fora da dívida, não entram no preço (R$ milhões)",
 }
 # O crescimento otimista vem do histórico, mas nem todo ele se repete (parte foi
 # aquisição, parte foi o pico de preços de 2021): fica limitado a este tanto acima da
@@ -221,6 +222,13 @@ def propor(ticker: str) -> dict[str, Any]:
         "capex_perpetuidade": escalar(1.0, "Na perpetuidade a empresa reinveste o que deprecia."),
         "outros_ajustes": escalar(
             0.0, "Nenhum. Provisões (barragens, contingências) não entram como dívida."
+        ),
+        "obrigacoes_extras": escalar(
+            ltm["obrigacoes_extras"],
+            f"Balanço do {ltm_rotulo.removeprefix('LTM ')}: {empresa(ticker).obrigacoes_nome}."
+            " Não entra no preço justo; serve para mostrar quanto ele cairia se entrasse."
+            if ltm["obrigacoes_extras"] > 0
+            else "Nenhuma obrigação grande fora da dívida identificada no balanço.",
         ),
     }
     return {

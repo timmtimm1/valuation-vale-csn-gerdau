@@ -14,7 +14,7 @@ import unicodedata
 import pandas as pd
 
 from valuation.cvm import CONTAS_CSV
-from valuation.empresas import DADOS
+from valuation.empresas import DADOS, EMPRESAS
 
 HISTORICO_CSV = DADOS / "historico.csv"
 ALIQUOTA_IR = 0.34  # IRPJ 25% + CSLL 9%, alíquota nominal das não financeiras
@@ -116,6 +116,22 @@ def _fluxos_por_descricao(dfc: pd.DataFrame) -> pd.DataFrame:
     return pd.concat([nivel3, ajustes]).dropna(subset=["linha"])
 
 
+def _obrigacoes_extras(passivo: pd.DataFrame) -> pd.DataFrame:
+    """Obrigações que o balanço não chama de dívida, pela descrição que cada empresa usa.
+
+    Só as contas de último nível (2.xx.xx.xx.xx), para não somar a conta e a soma dela.
+    """
+    folhas = passivo[passivo["cd_conta"].str.count(r"\.") == 4]
+    desc = folhas["ds_conta"].map(_sem_acento)
+    partes = []
+    for e in EMPRESAS:
+        if e.obrigacoes:
+            partes.append(folhas[(folhas["ticker"] == e.ticker) & desc.str.contains(e.obrigacoes)])
+    if not partes:
+        return folhas.iloc[0:0].assign(linha=None)
+    return pd.concat(partes).assign(linha="obrigacoes_extras")
+
+
 def _linhas(contas: pd.DataFrame) -> pd.DataFrame:
     """Tabela longa: ticker, doc, dt_refer, dt_ini, linha, valor."""
     partes = []
@@ -129,6 +145,7 @@ def _linhas(contas: pd.DataFrame) -> pd.DataFrame:
         q["linha"] = linha
         partes.append(q)
     partes.append(_fluxos_por_descricao(contas[contas["quadro"] == "DFC_MI"]))
+    partes.append(_obrigacoes_extras(contas[contas["quadro"] == "BPP"]))
     longa = pd.concat(partes, ignore_index=True)
     return (
         longa.groupby(["ticker", "doc", "dt_refer", "dt_ini", "linha"], dropna=False)["valor"]
@@ -179,6 +196,9 @@ def _indicadores(t: pd.DataFrame) -> pd.DataFrame:
     """Medidas derivadas. Custos e despesas ficam negativos, como na DRE da CVM."""
     t = t.copy()
     t["da"] = t["da"].abs()
+    if "obrigacoes_extras" not in t:
+        t["obrigacoes_extras"] = 0.0
+    t["obrigacoes_extras"] = t["obrigacoes_extras"].fillna(0.0)
     t["capex"] = t["capex"].abs()
     t["dividendos_pagos"] = t["dividendos_pagos"].abs()
     # A Vale entregou o custo de 2022 com sinal trocado (positivo) na DFP. Tirar o

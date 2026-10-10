@@ -85,6 +85,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, a:focus-visibl
 .controle input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
 .controle .escala { display: flex; justify-content: space-between; font-size: 0.74rem; color: var(--ink-3); font-family: var(--mono); }
 .nota { font-size: 0.8rem; color: var(--ink-3); line-height: 1.4; }
+.aviso { margin-top: 12px; padding: 10px 12px; border-left: 3px solid #c77700; background: color-mix(in srgb, #c77700 10%, transparent); font-size: 0.88rem; line-height: 1.5; border-radius: 4px; }
 .indice { display: grid; gap: 3px; border-top: 1px solid var(--line); padding-top: 14px; }
 .indice a { font-size: 0.82rem; color: var(--ink-2); text-decoration: none; display: flex; gap: 8px; }
 .indice a:hover { color: var(--accent); }
@@ -666,7 +667,10 @@ function desenhar() {
     (v.outros_ajustes ? lb("− Outros passivos", v.outros_ajustes, "menos") : "") +
     lb("Equity Value", v.equity, "total") +
     `<div class="linha"><span>÷ ${nf(0).format(emp.base.acoes)} milhões de ações</span><span></span><span class="num"><b>${sinal(v.preco_justo)}</b></span></div>
-     <div class="linha" style="color:var(--ink-3)"><span>Conferência pelo FCFE, descontado ao Ke</span><span></span><span class="num">${sinal(v.preco_fcfe)}</span></div>`;
+     <div class="linha" style="color:var(--ink-3)"><span>Conferência pelo FCFE, descontado ao Ke</span><span></span><span class="num">${sinal(v.preco_fcfe)}</span></div>` +
+    (v.obrigacoes_extras > 0
+      ? `<p class="aviso"><b>Aviso.</b> Ficaram fora desta conta ${bi(v.obrigacoes_extras)} em ${emp.obrigacoes_nome}, que o balanço não chama de dívida. Se entrassem como dívida, o preço justo seria <b>${sinal(v.preco_com_obrigacoes)}</b> em vez de ${sinal(v.preco_justo)}.</p>`
+      : "");
 
   // ---- 13. cenários: entradas e saídas de caixa
   const soma = (...series) => series[0].map((_, i) => series.reduce((t, x) => t + x[i], 0));
@@ -728,7 +732,7 @@ function desenhar() {
         td: ["", "", "", "", "", "uso", "origem"],
       };
     }));
-  const fmtPrem = (nome, x) => (/prazo/.test(nome) ? dias(x) : /equivalencia|captacao|outros_ajustes/.test(nome) ? mi(x) : /beta/.test(nome) ? nf(2).format(x) : /capex_perpetuidade/.test(nome) ? vezes(x) : pct(x, 1));
+  const fmtPrem = (nome, x) => (/prazo/.test(nome) ? dias(x) : /equivalencia|captacao|outros_ajustes|obrigacoes_extras/.test(nome) ? mi(x) : /beta/.test(nome) ? nf(2).format(x) : /capex_perpetuidade/.test(nome) ? vezes(x) : pct(x, 1));
   const fixas = Object.keys(emp.premissas).filter((k) => !VARIAVEIS.some((x) => x.id === k) && k !== "margem_ebitda" && k !== "crescimento_receita");
   tabela("t-prem-ano", [...cab("Premissa", anosE), { t: "De onde veio" }],
     fixas.filter((k) => Array.isArray(p[k])).map((k) => ({ c: [DADOS.rotulos[k], ...p[k].map((x) => fmtPrem(k, x)), emp.origens[k]], td: [...Array(n + 1).fill(""), "origem"] })));
