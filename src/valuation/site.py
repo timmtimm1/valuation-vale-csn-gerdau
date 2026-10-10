@@ -16,6 +16,7 @@ from typing import Any
 import markdown
 import pandas as pd
 
+from valuation import fontes as onde
 from valuation import historico, modelo, multiplos, premissas
 from valuation.empresas import FOCO, PAGINA, POR_TICKER, RAIZ, REPOSITORIO, SITE
 from valuation.macro import MACRO_CSV
@@ -87,6 +88,7 @@ def _empresa(ticker: str) -> dict[str, Any]:
         "ticker": ticker,
         "nome": dados["empresa"],
         "obrigacoes_nome": POR_TICKER[ticker].obrigacoes_nome,
+        "fontes": onde.da_empresa(ticker),
         "status": dados["status"],
         "data_base": dados["data_base"],
         "ano_base": dados["ano_base"],
@@ -126,6 +128,7 @@ def dados_da_pagina() -> dict[str, Any]:
     return {
         "empresas": {e.ticker: _empresa(e.ticker) for e in FOCO},
         "rotulos": {**premissas.VARIAVEIS, **premissas.POR_ANO, **premissas.ESCALARES},
+        "fontes_gerais": [{"dado": d, "fonte": f, "url": u} for d, f, u in onde.GERAIS],
         "nomes_cenarios": {
             "pessimista": "Pessimista",
             "moderado": "Moderado",

@@ -35,3 +35,20 @@ def test_fontes_cita_todos_os_arquivos_de_dados(pasta: Path) -> None:
         assert f"dados/{arquivo}.csv" in texto
     assert "dados/commodity_e_acoes.csv" in texto
     assert texto.count("https://") >= 8
+
+
+def test_fontes_aponta_para_o_documento_de_cada_empresa_na_cvm(pasta: Path) -> None:
+    from valuation import fontes
+
+    texto = registro.fontes().read_text(encoding="utf-8")
+    docs = fontes.documentos()
+    for e in EMPRESAS:
+        links = fontes.da_empresa(e.ticker)
+        assert len(links) == 4
+        # o ITR citado é o mais recente que a empresa entregou
+        ultimo = docs[(docs["ticker"] == e.ticker) & (docs["doc"] == "ITR")]["dt_refer"].max()
+        assert "/".join(reversed(ultimo.split("-"))) in links[0]["rotulo"]
+        for link in links:
+            assert link["url"].startswith("https://")
+            assert f"]({link['url']})" in texto
+    assert "Código da conta na CVM" in texto
