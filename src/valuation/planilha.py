@@ -1,4 +1,4 @@
-"""Gera a planilha do estudo: um arquivo só, com as três empresas e todas as contas em fórmulas.
+"""Gera a planilha do estudo: um arquivo só, com as empresas e todas as contas em fórmulas.
 
 Na aba Painel escolhe-se a empresa e o cenário em duas listas; o resto do arquivo
 recalcula. O caminho segue o valuation pelo fluxo de caixa da empresa: FCFF, WACC,
@@ -67,6 +67,7 @@ FORMATO_PREMISSA = {
     "equivalencia": MI,
     "captacao_liquida": MI,
     "outros_ajustes": MI,
+    "obrigacoes_extras": MI,
     "prazo_recebimento": DIAS,
     "prazo_estoque": DIAS,
     "prazo_pagamento": DIAS,
@@ -79,7 +80,7 @@ TICKERS = [e.ticker for e in FOCO]
 NOME_EMPRESA = {e.ticker: f"{e.nome} ({e.ticker})" for e in FOCO}
 
 # --- Painel: endereços fixos, porque todas as outras abas dependem deles.
-EMP = "'Painel'!$Y$5"  # número da empresa escolhida (1, 2 ou 3)
+EMP = "'Painel'!$Y$5"  # número da empresa escolhida, na ordem de TICKERS
 CEN = "'Painel'!$Y$9"  # número do cenário (1 pessimista, 2 moderado, 3 otimista)
 CELULA_EMPRESA, CELULA_CENARIO = "D5", "D6"
 LINHA_VARIAVEL = {"crescimento_receita": 10, "margem_ebitda": 11, "wacc": 12}
@@ -429,7 +430,7 @@ ALTURA_DADOS = len(LINHAS_DADOS) + 3
 
 
 def _aba_dados(wb: Workbook) -> list[str]:
-    """Histórico da CVM das três empresas, um bloco embaixo do outro. Devolve os períodos."""
+    """Histórico da CVM das empresas do estudo, um bloco embaixo do outro. Devolve os períodos."""
     ws = wb.create_sheet("Dados")
     h = historico.carregar()
     periodos = list(h[h["ticker"] == TICKERS[0]]["periodo"])
@@ -627,7 +628,7 @@ def _aba_demonstrativos(wb: Workbook, periodos: list[str]) -> tuple[Aba, int, in
         (
             "divida_liquida_ebitda",
             "Dívida líquida / EBITDA",
-            lambda c: f"={x('divida_liquida', c)}/{x('ebitda', c)}",
+            lambda c: f"={x('divida_liquida', c)}/{x('ebitda_recorrente', c)}",
             VEZES,
         ),
         (
@@ -1281,6 +1282,17 @@ def _aba_valor(
     )
     unico("peso_vt", "Peso do valor terminal no valor da empresa", f"={x('vp_vt')}/{x('ev')}", PCT)
     unico(
+        "obrigacoes",
+        "Aviso: obrigações fora da dívida (não entram no preço justo)",
+        f"={P('obrigacoes_extras')}",
+    )
+    unico(
+        "preco_com_obrigacoes",
+        "Aviso: preço por ação se essas obrigações fossem dívida",
+        f"=({x('equity')}-{x('obrigacoes')})/{x('acoes')}",
+        REAIS,
+    )
+    unico(
         "ev_ebitda",
         f"EV / EBITDA {anos[0]}E implícito",
         f"={x('ev')}/{proj.ref('ebitda', cols[0])}",
@@ -1365,14 +1377,15 @@ def _aba_valor(
 
 def _aba_multiplos(wb: Workbook, valor: Aba) -> None:
     t = multiplos.calcular()
-    ordem = [*TICKERS, *[k for k in t.index if k not in TICKERS]]  # as três do estudo em cima
+    ordem = [*TICKERS, *[k for k in t.index if k not in TICKERS]]  # as do estudo em cima
     ws = wb.create_sheet("Múltiplos")
     ws.cell(1, 2, "Valuation por múltiplos").font = TITULO
     ws.cell(
         2,
         2,
         "Quanto o mercado paga pelas comparáveis, com os números dos últimos doze meses. A "
-        "mediana das outras quatro, aplicada à empresa escolhida, dá um preço implícito.",
+        "mediana das outras quatro, aplicada à empresa escolhida, dá um preço implícito. "
+        "EBITDA e EBIT entram sem as perdas por recuperabilidade; o lucro é o divulgado.",
     ).font = CINZA
     campos = (
         ("Setor", "setor", None),
@@ -1682,7 +1695,7 @@ def _aba_correlacao(wb: Workbook) -> None:
         "nível do preço: duas séries que só sobem parecem ligadas mesmo sem ter relação.",
     ).font = CINZA
 
-    # Dados mensais: mês, minério, dólar, minério em reais, três ações, ação escolhida;
+    # Dados mensais: mês, minério, dólar, minério em reais, as ações, ação escolhida;
     # depois as variações mensais e os índices base 100 que alimentam o gráfico.
     primeira = CAB_MENSAL + 1
     ultima = primeira + len(t) - 1
@@ -1710,8 +1723,8 @@ def _aba_correlacao(wb: Workbook) -> None:
         ws.cell(r, c_min_brl, f"={L(c_min)}{r}*{L(c_dolar)}{r}").number_format = "0.0"
         for k in TICKERS:
             ws.cell(r, c_acao[k], float(linha[k])).number_format = DEC
-        das_tres = ",".join(f"{L(c_acao[k])}{r}" for k in TICKERS)
-        ws.cell(r, c_sel, f"=CHOOSE({EMP},{das_tres})").number_format = DEC
+        das_acoes = ",".join(f"{L(c_acao[k])}{r}" for k in TICKERS)
+        ws.cell(r, c_sel, f"=CHOOSE({EMP},{das_acoes})").number_format = DEC
         if i > 0:
             for origem, destino in (
                 (c_min, c_var_min),
@@ -1814,7 +1827,8 @@ def _aba_correlacao(wb: Workbook) -> None:
 
 
 def _aba_painel(ws: Worksheet, anos: list[int], wacc: Aba, valor: Aba, fcff: Aba) -> None:
-    ws.cell(1, 2, "Valuation de Vale, CSN e Gerdau").font = TITULO
+    nomes = [e.nome for e in FOCO]
+    ws.cell(1, 2, f"Valuation de {', '.join(nomes[:-1])} e {nomes[-1]}").font = TITULO
     ws.cell(
         2, 2, "Escolha a empresa e o cenário nas células amarelas. Todas as abas recalculam."
     ).font = CINZA
@@ -1825,17 +1839,21 @@ def _aba_painel(ws: Worksheet, anos: list[int], wacc: Aba, valor: Aba, fcff: Aba
         "empresas divulgam e com simulações que juntam dados reais e dados projetados.",
     ).font = Font(italic=True, color="C00000")
 
-    # Listas das duas escolhas, fora da área de leitura.
+    # Listas das duas escolhas, fora da área de leitura. As empresas ficam nas linhas 5 a
+    # 8 e os cenários começam na 9: cabem quatro empresas.
+    if len(TICKERS) > 4:
+        raise ValueError("a lista de empresas do Painel só tem lugar para quatro")
+    lista_empresas = f"$X$5:$X${4 + len(TICKERS)}"
     ws.cell(4, 24, "Listas (não apagar)").font = NEGRITO
     for i, ticker in enumerate(TICKERS):
         ws.cell(5 + i, 24, NOME_EMPRESA[ticker])
     for i, nome in enumerate(premissas.CENARIOS):
         ws.cell(9 + i, 24, NOME_CENARIO[nome])
-    ws.cell(5, 25, f"=MATCH(${CELULA_EMPRESA[0]}${CELULA_EMPRESA[1:]},$X$5:$X$7,0)")
+    ws.cell(5, 25, f"=MATCH(${CELULA_EMPRESA[0]}${CELULA_EMPRESA[1:]},{lista_empresas},0)")
     ws.cell(9, 25, f"=MATCH(${CELULA_CENARIO[0]}${CELULA_CENARIO[1:]},$X$9:$X$11,0)")
 
     for endereco, rotulo, inicial, lista in (
-        (CELULA_EMPRESA, "Empresa", NOME_EMPRESA[TICKERS[0]], "$X$5:$X$7"),
+        (CELULA_EMPRESA, "Empresa", NOME_EMPRESA[TICKERS[0]], lista_empresas),
         (CELULA_CENARIO, "Cenário", NOME_CENARIO["moderado"], "$X$9:$X$11"),
     ):
         celula = ws[endereco]
@@ -1936,6 +1954,8 @@ def _aba_painel(ws: Worksheet, anos: list[int], wacc: Aba, valor: Aba, fcff: Aba
         ("Valor do acionista", valor.ref("equity", d), MI, "EV menos dívida líquida e minoritários, mais investimentos."),
         ("Peso do valor terminal", valor.ref("peso_vt", d), PCT, f"Quanto do valor vem de depois de {anos[-1]}."),
         ("Preço pelo fluxo do acionista (FCFE)", valor.ref("preco_fcfe", d), REAIS, "Conferência por outro caminho: deve ficar perto do preço justo."),
+        ("Aviso: obrigações fora da dívida", valor.ref("obrigacoes", d), MI, "Provisões de Brumadinho e Mariana na Vale, adiantamentos de clientes na CSN. Não entram no preço justo."),
+        ("Aviso: preço se elas fossem dívida", valor.ref("preco_com_obrigacoes", d), REAIS, "Quanto valeria a ação tirando essas obrigações. Igual ao preço justo quando não há nenhuma."),
     )  # fmt: skip
     for i, (rotulo, origem, formato, texto) in enumerate(resultados, start=1):
         ws.cell(r + i, 2, rotulo).font = NEGRITO if i == 1 else Font()

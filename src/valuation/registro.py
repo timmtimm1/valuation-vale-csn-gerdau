@@ -236,6 +236,7 @@ def fotografia(dia: date | None = None) -> Path:
                 "R$ " + _num(v["preco_mercado"]),
                 *[_reais(rodadas[c]["valuation"]["preco_justo"]) for c in premissas.CENARIOS],
                 _pct(v["wacc"], 2),
+                _reais(v["preco_com_obrigacoes"]) if v["obrigacoes_extras"] > 0 else "igual",
             ]
         )
         cen = dados["cenarios"]
@@ -299,7 +300,11 @@ mercado, descritas no README.
 Preço por ação pelo fluxo de caixa descontado (FCFF), em cada cenário. Valor negativo quer
 dizer que, naquele cenário, a dívida supera o valor da empresa.
 
-{_tabela(["Empresa", "Mercado", *nomes, "WACC moderado"], resultado)}
+{_tabela(["Empresa", "Mercado", *nomes, "WACC moderado", "Aviso: moderado contando obrigações fora da dívida"], resultado)}
+
+Aviso: a última coluna não é um cenário. Ela mostra quanto o valor moderado cairia se
+entrassem como dívida as provisões de Brumadinho e de Mariana da Vale e os adiantamentos que a
+CSN recebeu de clientes. O balanço não chama nenhuma das duas de dívida.
 
 ## Os três cenários
 

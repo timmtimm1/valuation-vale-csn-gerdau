@@ -5,7 +5,7 @@ import typer
 from valuation import b3, commodities, cvm, historico, macro, multiplos, planilha, premissas
 from valuation.empresas import FOCO
 
-app = typer.Typer(help="Valuation de VALE3, CSNA3 e GGBR4.", no_args_is_help=True)
+app = typer.Typer(help="Valuation de VALE3, CSNA3, GGBR4 e USIM5.", no_args_is_help=True)
 
 
 def _tickers(ticker: str | None) -> list[str]:

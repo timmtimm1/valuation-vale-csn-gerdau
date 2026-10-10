@@ -257,6 +257,9 @@ def avaliar(
         "potencial": preco / base.preco - 1,
         "equity_fcfe": equity_fcfe,
         "preco_fcfe": equity_fcfe / base.acoes,
+        # Aviso, não resultado: o preço se as obrigações fora da dívida fossem dívida.
+        "obrigacoes_extras": p["obrigacoes_extras"],
+        "preco_com_obrigacoes": (equity - p["obrigacoes_extras"]) / base.acoes,
         "ev_ebitda_implicito": ev / proj[proj.columns[0]]["ebitda"],
     }
 

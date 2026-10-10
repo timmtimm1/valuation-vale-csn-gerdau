@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "valuation-mineracao-siderurgia"
 version = "0.1.0"
-description = "Valuation de VALE3, CSNA3 e GGBR4: dados da CVM, planilha com fórmulas vivas e página interativa"
+description = "Valuation de VALE3, CSNA3, GGBR4 e USIM5: dados da CVM, planilha com fórmulas vivas e página interativa"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

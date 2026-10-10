@@ -1,15 +1,15 @@
-ticker: CSNA3
-empresa: CSN
+ticker: USIM5
+empresa: Usiminas
 status: proposta
 data_base: '2026-06-30'
 ano_base: 2025
 anos: [2026, 2027, 2028, 2029, 2030]
 cenarios:
-  crescimento_receita: {partida: 0.0069, pessimista: 0.0, moderado: 0.0378, otimista: 0.0778, origem: '2026:
+  crescimento_receita: {partida: -0.0564, pessimista: 0.0, moderado: 0.0378, otimista: 0.0778, origem: '2026:
       nível dos últimos 12 meses (LTM 2T26). Pessimista: receita parada, ou seja, queda real. Moderado:
       inflação esperada no Focus para 2027-2030, crescimento real zero. Otimista: crescimento médio da
-      receita de 2018 a 2025 (10,0% ao ano), limitado a 4 pontos acima da inflação.'}
-  margem_ebitda: {partida: 0.1713, pessimista: 0.1884, moderado: 0.2002, otimista: 0.237, origem: '2026:
+      receita de 2018 a 2025 (9,7% ao ano), limitado a 4 pontos acima da inflação.'}
+  margem_ebitda: {partida: 0.096, pessimista: 0.0672, moderado: 0.0809, otimista: 0.1529, origem: '2026:
       nível dos últimos 12 meses (LTM 2T26). Daí até 2030 em linha reta. Faixa: margem EBITDA de 2021
       a 2025, sem perdas por recuperabilidade. Pessimista é o segundo pior ano, moderado a mediana e otimista
       o segundo melhor.'}
@@ -18,44 +18,43 @@ cenarios:
       deslocam o WACC em metade dessa amplitude.'}
 premissas:
   despesas_pct:
-    valores: [0.2146, 0.2001, 0.1857, 0.1713, 0.1569]
+    valores: [0.0598, 0.0589, 0.0581, 0.0573, 0.0564]
     origem: Vendas, administrativas e outras, sem perdas por recuperabilidade. Do nível dos últimos 12
       meses até a mediana de 2021-2025.
   equivalencia:
-    valores: [351.131, 351.131, 351.131, 351.131, 351.131]
+    valores: [268.999, 268.999, 268.999, 268.999, 268.999]
     origem: Mediana de 2021-2025, mantida.
   capex_pct:
-    valores: [0.1326, 0.1237, 0.1148, 0.1059, 0.097]
+    valores: [0.0495, 0.0483, 0.047, 0.0458, 0.0446]
     origem: Do nível dos últimos 12 meses até a mediana de 2021-2025.
   depreciacao_pct:
-    valores: [0.0983, 0.0983, 0.0983, 0.0983, 0.0983]
+    valores: [0.0826, 0.0826, 0.0826, 0.0826, 0.0826]
     origem: Mediana de 2021-2025, mantida.
   prazo_recebimento:
-    valores: [19.5303, 19.5303, 19.5303, 19.5303, 19.5303]
+    valores: [41.73, 41.73, 41.73, 41.73, 41.73]
     origem: Prazo de 2025, mantido.
   prazo_estoque:
-    valores: [135.0709, 135.0709, 135.0709, 135.0709, 135.0709]
+    valores: [94.8936, 94.8936, 94.8936, 94.8936, 94.8936]
     origem: Prazo de 2025, mantido.
   prazo_pagamento:
-    valores: [92.5353, 92.5353, 92.5353, 92.5353, 92.5353]
+    valores: [40.711, 40.711, 40.711, 40.711, 40.711]
     origem: Prazo de 2025, mantido.
   captacao_liquida:
     valores: [0.0, 0.0, 0.0, 0.0, 0.0]
     origem: Dívida bruta mantida no nível de 2025.
   aliquota_ir: {valor: 0.34, origem: 'Alíquota nominal: IRPJ 25% + CSLL 9%.'}
   custo_divida: {valor: 0.1291, origem: 'A taxa do Tesouro prefixado de dez anos, a mesma para todas as
-      empresas. Custo implícito mediano 2023-2025: 14,2%.'}
-  rendimento_caixa: {valor: 0.0772, origem: Mediana 2023-2025 da receita financeira sobre o caixa médio.}
-  payout: {valor: 0.242, origem: 'Mediana 2021-2025 de dividendos pagos sobre lucro, limitada a 0-100%.'}
+      empresas. Custo implícito mediano 2023-2025: 16,0%.'}
+  rendimento_caixa: {valor: 0.1455, origem: Mediana 2023-2025 da receita financeira sobre o caixa médio.}
+  payout: {valor: 0.4429, origem: 'Mediana 2021-2025 de dividendos pagos sobre lucro, limitada a 0-100%.'}
   juro_sem_risco: {valor: 0.1291, origem: 'Tesouro prefixado de dez anos (em reais, nominal).'}
-  beta: {valor: 1.483, origem: 'Regressão de 5 anos, retornos semanais contra o BOVA11, preços sem ajuste
-      de proventos. Beta de 2 anos: 1,48.'}
+  beta: {valor: 1.0166, origem: 'Regressão de 5 anos, retornos semanais contra o BOVA11, preços sem ajuste
+      de proventos. Beta de 2 anos: 0,72.'}
   premio_mercado: {valor: 0.0423, origem: 'Damodaran, mercado maduro. O risco-país já está no juro em
       reais.'}
   premio_adicional: {valor: 0.0, origem: Sem prêmio adicional.}
-  peso_divida: {valor: 0.8635, origem: Dívida bruta do 2T26 sobre dívida mais valor de mercado.}
+  peso_divida: {valor: 0.4191, origem: Dívida bruta do 2T26 sobre dívida mais valor de mercado.}
   crescimento_perpetuo: {valor: 0.035, origem: 'IPCA esperado para 2030: crescimento real zero.'}
   capex_perpetuidade: {valor: 1.0, origem: Na perpetuidade a empresa reinveste o que deprecia.}
   outros_ajustes: {valor: 0.0, origem: 'Nenhum. Provisões (barragens, contingências) não entram como dívida.'}
-  obrigacoes_extras: {valor: 13101.338, origem: 'Balanço do 2T26: adiantamentos recebidos de clientes
-      por produtos a entregar. Não entra no preço justo; serve para mostrar quanto ele cairia se entrasse.'}
+  obrigacoes_extras: {valor: 0.0, origem: Nenhuma obrigação grande fora da dívida identificada no balanço.}

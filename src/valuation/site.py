@@ -1,7 +1,7 @@
 """Monta a página interativa: um HTML só, com o modelo e os dados embutidos.
 
 `site/pagina.html` é o molde (estrutura, estilo e interface), `site/modelo.js`
-são as contas. Aqui os dois são juntados com os dados das três empresas em
+são as contas. Aqui os dois são juntados com os dados das empresas do estudo em
 `site/index.html`, que abre direto no navegador e pode ser hospedado em qualquer
 servidor de arquivos estáticos.
 
@@ -17,7 +17,7 @@ import markdown
 import pandas as pd
 
 from valuation import historico, modelo, multiplos, premissas
-from valuation.empresas import FOCO, PAGINA, RAIZ, REPOSITORIO, SITE
+from valuation.empresas import FOCO, PAGINA, POR_TICKER, RAIZ, REPOSITORIO, SITE
 from valuation.macro import MACRO_CSV
 from valuation.planilha import ARQUIVO
 
@@ -27,7 +27,7 @@ LIGACOES = "<!--__LIGACOES__-->"
 LEIAME = RAIZ / "README.md"
 TRECHOS = {"<!--__RESUMO__-->": "resumo", "<!--__ANALISE__-->": "analise"}
 DESCRICAO = (
-    "Valuation de VALE3, CSNA3 e GGBR4 por fluxo de caixa descontado e por múltiplos, "
+    "Valuation de VALE3, CSNA3, GGBR4 e USIM5 por fluxo de caixa descontado e por múltiplos, "
     "com três cenários ajustáveis e só dados públicos."
 )
 
@@ -86,6 +86,7 @@ def _empresa(ticker: str) -> dict[str, Any]:
     return {
         "ticker": ticker,
         "nome": dados["empresa"],
+        "obrigacoes_nome": POR_TICKER[ticker].obrigacoes_nome,
         "status": dados["status"],
         "data_base": dados["data_base"],
         "ano_base": dados["ano_base"],
@@ -180,7 +181,7 @@ def construir() -> Path:
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f'<meta name="description" content="{DESCRICAO}">\n'
         '<meta property="og:type" content="website">\n'
-        '<meta property="og:title" content="Valuation: Vale, CSN e Gerdau">\n'
+        '<meta property="og:title" content="Valuation: Vale, CSN, Gerdau e Usiminas">\n'
         f'<meta property="og:description" content="{DESCRICAO}">\n'
         f'<meta property="og:url" content="{PAGINA}">\n'
         f'{cabeca}</head>\n<body style="margin:0">\n{CORPO}{corpo}</body>\n</html>\n',
