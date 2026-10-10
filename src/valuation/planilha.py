@@ -2117,11 +2117,70 @@ def _aba_glossario(wb: Workbook) -> None:
     ws.freeze_panes = "C5"
 
 
+def _aba_fontes(wb: Workbook) -> None:
+    """Onde conferir cada dado: o documento de cada empresa na CVM e as fontes de mercado."""
+    from valuation import fontes
+
+    ws = wb.create_sheet("Fontes")
+    ws.cell(1, 2, "Fontes: onde conferir cada dado").font = TITULO
+    ws.cell(
+        2,
+        2,
+        "Nenhum número desta planilha foi digitado à mão. Clique no link para abrir a fonte. "
+        "Os balanços são os que cada empresa entregou à CVM.",
+    ).font = CINZA
+    azul = Font(color="0563C1", underline="single")
+
+    def cabecalho(r: int, textos: tuple[str, ...]) -> None:
+        for c, texto in enumerate(textos, start=2):
+            celula = ws.cell(r, c, texto)
+            celula.font, celula.fill = BRANCO, FUNDO_CABECALHO
+
+    def link(r: int, c: int, texto: str, url: str) -> None:
+        celula = ws.cell(r, c, texto)
+        celula.hyperlink, celula.font = url, azul
+
+    r = 4
+    cabecalho(r, ("Empresa", "O que é", "Endereço"))
+    for ticker, links in fontes.de_todas().items():
+        for item in links:
+            r += 1
+            ws.cell(r, 2, ticker).font = NEGRITO
+            ws.cell(r, 3, item["rotulo"])
+            link(r, 4, item["url"], item["url"])
+    r += 2
+    cabecalho(r, ("Dado", "Fonte", "Endereço"))
+    for dado, fonte, url in fontes.GERAIS:
+        r += 1
+        ws.cell(r, 2, dado)
+        ws.cell(r, 3, fonte)
+        link(r, 4, url, url)
+    r += 2
+    ws.cell(r, 2, "Onde achar cada número dentro do documento da CVM").font = NEGRITO
+    r += 1
+    cabecalho(r, ("Número", "Em qual demonstração", "Código da conta"))
+    for numero, demonstracao, codigo in fontes.CONTAS:
+        r += 1
+        ws.cell(r, 2, numero)
+        ws.cell(r, 3, demonstracao)
+        ws.cell(r, 4, codigo)
+    ws.cell(
+        r + 2,
+        2,
+        "Use as demonstrações consolidadas. No documento os valores estão em milhares de reais; "
+        "aqui, em milhões.",
+    ).font = CINZA
+    ws.column_dimensions["A"].width = 2
+    for letra, largura in (("B", 52), ("C", 74), ("D", 110)):
+        ws.column_dimensions[letra].width = largura
+    ws.sheet_view.showGridLines = False
+
+
 # --------------------------------------------------------------------------- Montagem
 
 ORDEM = [
     "Painel", "Passo a passo", "Demonstrativos", "Projeção", "FCFF", "WACC", "Valor justo",
-    "Múltiplos", "Cenários", "Correlação", "Glossário", "Premissas", "Dados",
+    "Múltiplos", "Cenários", "Correlação", "Glossário", "Fontes", "Premissas", "Dados",
 ]  # fmt: skip
 
 
@@ -2169,6 +2228,7 @@ def montar() -> Workbook:
     _aba_painel(painel, anos, wacc, valor, fcff)
     _aba_passos(wb, anos, wacc, valor, fcff)
     _aba_glossario(wb)
+    _aba_fontes(wb)
 
     wb._sheets = [wb[nome] for nome in ORDEM]
     wb.active = 0

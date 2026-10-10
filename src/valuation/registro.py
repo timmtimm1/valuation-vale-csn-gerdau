@@ -16,6 +16,7 @@ from pathlib import Path
 import pandas as pd
 
 from valuation import commodities, modelo, premissas
+from valuation import fontes as onde
 from valuation.b3 import MERCADO_CSV, PRECOS_CSV
 from valuation.cvm import ACOES_CSV, CONTAS_CSV
 from valuation.empresas import EMPRESAS, FOCO, POR_TICKER, RAIZ, REPOSITORIO
@@ -93,6 +94,21 @@ def fontes() -> Path:
             "18/04/2024",
         ],
         [
+            "Bonificação da Gerdau (uma ação nova para cada vinte), usada para corrigir o preço",
+            "Gerdau, [aviso aos acionistas de 28/02/2023](https://www.latibex.com/docs/Documentos/"
+            "LED/2023/03/02/BRACN_20230301_125502_B01_GGBR3_001_20230322_001_DOC001.pdf); "
+            "conferida no COTAHIST (queda de 4% no dia) e no número de ações da CVM",
+            "`src/valuation/empresas.py`",
+            "22/03/2023",
+        ],
+        [
+            "Obrigações fora da dívida, mostradas como aviso: provisões de Brumadinho e de "
+            "Mariana (Vale) e adiantamentos de clientes (CSN)",
+            "CVM, balanço consolidado do ITR, contas do passivo listadas abaixo",
+            "`dados/contas_cvm.csv` e a coluna `obrigacoes_extras` de `dados/historico.csv`",
+            _br(itr.max()),
+        ],
+        [
             "Juro prefixado e juro real de dez anos; mínimo e máximo do prefixado em dois anos",
             "[Tesouro Direto, preços e taxas](https://www.tesourotransparente.gov.br/ckan/dataset/"
             "taxas-dos-titulos-ofertados-pelo-tesouro-direto) (Tesouro Transparente)",
@@ -129,6 +145,16 @@ def fontes() -> Path:
         ],
     ]
     empresas = ", ".join(f"{e.nome} ({e.ticker})" for e in EMPRESAS)
+    por_empresa = "\n\n".join(
+        f"**{POR_TICKER[ticker].nome} ({ticker})**\n\n"
+        + "\n".join(f"- [{link['rotulo']}]({link['url']})" for link in links)
+        for ticker, links in onde.de_todas().items()
+    )
+    contas_cvm = _tabela(
+        ["Número", "Em qual demonstração", "Código da conta na CVM"],
+        [list(linha) for linha in onde.CONTAS],
+        direita=3,
+    )
     texto = f"""# Fontes dos dados
 
 Todos os dados do estudo são públicos e gratuitos. Esta lista é gerada pelo comando
@@ -138,6 +164,23 @@ recente que está no repositório.
 Empresas: {empresas}.
 
 {_tabela(["Dado", "Fonte", "Onde está no repositório", "Data do dado"], linhas, direita=4)}
+
+## O documento de cada empresa na CVM
+
+Os balanços deste estudo são os que cada empresa entregou à CVM. Os links abaixo abrem o
+documento original no site da CVM, com a demonstração do resultado, o balanço e o fluxo de
+caixa. Os endereços vêm do índice que a própria CVM publica junto com os dados.
+
+{por_empresa}
+
+## Onde achar cada número dentro do documento
+
+A CVM usa o mesmo plano de contas para todas as empresas. Com o código da conta dá para
+achar no documento o mesmo número que está em `dados/contas_cvm.csv`. Use sempre as
+demonstrações consolidadas; os valores do documento estão em milhares de reais e os do
+estudo em milhões.
+
+{contas_cvm}
 
 ## Como conferir
 

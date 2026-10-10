@@ -281,6 +281,17 @@ a { color: var(--accent); }
         </div>
       </section>
 
+      <section class="bloco" id="conferir">
+        <h2><span class="n">+</span>Confira na fonte</h2>
+        <p>Nenhum número desta página foi digitado à mão. Os balanços são os que cada empresa entregou à CVM, e os links abaixo abrem o documento original.</p>
+        <div class="cartao prosa">
+          <h3 id="fontes-titulo"></h3>
+          <ul id="fontes-empresa"></ul>
+          <h3>Mercado, juros e minério</h3>
+          <ul id="fontes-gerais"></ul>
+        </div>
+      </section>
+
       <footer>
         <p id="fontes"></p>
         <p>Estudo de Bernardo Steffen Timm. Isto não é recomendação de investimento. É uma análise feita com os dados que as próprias empresas divulgam e com simulações que juntam dados reais e dados projetados.</p>
@@ -738,6 +749,10 @@ function desenhar() {
     fixas.filter((k) => Array.isArray(p[k])).map((k) => ({ c: [DADOS.rotulos[k], ...p[k].map((x) => fmtPrem(k, x)), emp.origens[k]], td: [...Array(n + 1).fill(""), "origem"] })));
   tabela("t-prem-geral", ["Premissa", { t: "Valor", cls: "num" }, { t: "De onde veio" }],
     fixas.filter((k) => !Array.isArray(p[k])).map((k) => ({ c: [DADOS.rotulos[k], fmtPrem(k, p[k]), emp.origens[k]], td: ["", "", "origem"] })));
+
+  el("fontes-titulo").textContent = `${emp.nome} (${emp.ticker})`;
+  el("fontes-empresa").innerHTML = emp.fontes.map((f) => `<li><a href="${f.url}" target="_blank" rel="noopener">${f.rotulo}</a></li>`).join("");
+  el("fontes-gerais").innerHTML = DADOS.fontes_gerais.map((f) => `<li>${f.dado}: <a href="${f.url}" target="_blank" rel="noopener">${f.fonte}</a></li>`).join("");
 
   const quando = (i) => data(DADOS.macro.find((x) => x.indicador === i).data);
   el("fontes").textContent = `Fontes: demonstrações consolidadas na CVM (DFP 2018–2025 e ITR até ${data(emp.data_base)}); cotações da B3 (COTAHIST); Tesouro Direto (${quando("juro_prefixado_longo")}); Boletim Focus do Banco Central (${quando("ipca_2030")}); prêmio de risco de Aswath Damodaran, NYU (${quando("premio_mercado_maduro")}).`;

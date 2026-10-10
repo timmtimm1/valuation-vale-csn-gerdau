@@ -24,6 +24,7 @@ ESCALA = {"MIL": 1e-3, "UNIDADE": 1e-6}  # para R$ milhões
 
 CONTAS_CSV = DADOS / "contas_cvm.csv"
 ACOES_CSV = DADOS / "acoes.csv"
+DOCUMENTOS_CSV = DADOS / "documentos_cvm.csv"
 
 
 def baixar(tipo: str, ano: int) -> Path:
@@ -104,6 +105,36 @@ def ler_acoes(tipo: str, ano: int) -> pd.DataFrame:
     return saida
 
 
+def ler_documentos(tipo: str, ano: int) -> pd.DataFrame:
+    """O índice do zip: um registro por documento entregue, com o número dele na CVM.
+
+    É o que permite apontar para o documento original de cada empresa, e não só para o
+    arquivo com todas as companhias.
+    """
+    df = _ultima_versao(_ler_csv(baixar(tipo, ano), f"{tipo}_cia_aberta_{ano}.csv"))
+    return pd.DataFrame(
+        {
+            "ticker": df["CNPJ_CIA"].map(lambda c: POR_CNPJ[c].ticker),
+            "doc": tipo.upper(),
+            "dt_refer": df["DT_REFER"],
+            "versao": df["VERSAO"],
+            "dt_receb": df["DT_RECEB"],
+            "cd_cvm": df["CD_CVM"],
+            "id_doc": df["ID_DOC"],
+        }
+    )
+
+
+def documentos() -> pd.DataFrame:
+    """Grava `dados/documentos_cvm.csv` a partir dos zips que já estão no cache."""
+    lista = [("dfp", a) for a in ANOS_DFP] + [("itr", a) for a in ANOS_ITR]
+    docs = pd.concat([ler_documentos(tipo, ano) for tipo, ano in lista], ignore_index=True)
+    docs = docs.sort_values(["ticker", "doc", "dt_refer"])
+    DADOS.mkdir(exist_ok=True)
+    docs.to_csv(DOCUMENTOS_CSV, index=False)
+    return docs
+
+
 def extrair() -> tuple[pd.DataFrame, pd.DataFrame]:
     """Baixa, filtra e grava `dados/contas_cvm.csv` e `dados/acoes.csv`."""
     documentos = [("dfp", a) for a in ANOS_DFP] + [("itr", a) for a in ANOS_ITR]
@@ -122,4 +153,5 @@ def extrair() -> tuple[pd.DataFrame, pd.DataFrame]:
     DADOS.mkdir(exist_ok=True)
     contas.to_csv(CONTAS_CSV, index=False, float_format="%.3f")
     acoes.to_csv(ACOES_CSV, index=False, float_format="%.6f")
+    documentos()
     return contas, acoes

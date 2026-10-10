@@ -249,6 +249,7 @@ frase dizendo o que é e como foi calculada.
 | Cenários | Entradas e saídas de caixa e os três cenários lado a lado |
 | Correlação | Variação mensal de cada ação contra a do minério de ferro |
 | Glossário | O que é cada indicador e como se calcula |
+| Fontes | O link do documento que cada empresa entregou à CVM e das outras fontes |
 | Premissas | Um bloco editável por empresa (células azuis) |
 | Dados | O histórico da CVM das quatro empresas |
 
@@ -285,6 +286,11 @@ aprovado não é mais sobrescrito.
 
 Cada número de mercado fica em `dados/macro.csv` com data e link. A lista completa, com o link
 de cada fonte e a data do dado mais recente, está em [FONTES.md](FONTES.md).
+
+Para conferir se um número é real, o [FONTES.md](FONTES.md) tem o link do documento que cada
+empresa entregou à CVM (o balanço trimestral de junho de 2026 e o anual de 2025) e o código da
+conta onde cada número aparece. Os mesmos links estão no fim da página e na aba Fontes da
+planilha.
 
 ## Quando a análise foi feita
 
