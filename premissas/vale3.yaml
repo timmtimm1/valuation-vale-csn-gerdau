@@ -57,3 +57,5 @@ premissas:
   crescimento_perpetuo: {valor: 0.035, origem: 'IPCA esperado para 2030: crescimento real zero.'}
   capex_perpetuidade: {valor: 1.0, origem: Na perpetuidade a empresa reinveste o que deprecia.}
   outros_ajustes: {valor: 0.0, origem: 'Nenhum. Provisões (barragens, contingências) não entram como dívida.'}
+  obrigacoes_extras: {valor: 20038.0, origem: 'Balanço do 2T26: provisões de Brumadinho e de Mariana (Samarco).
+      Não entra no preço justo; serve para mostrar quanto ele cairia se entrasse.'}

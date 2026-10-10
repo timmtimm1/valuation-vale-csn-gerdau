@@ -30,10 +30,11 @@ ação.
 | | Vale (VALE3) | CSN (CSNA3) | Gerdau (GGBR4) | Usiminas (USIM5) |
 | --- | ---: | ---: | ---: | ---: |
 | Preço na bolsa | R$ 67,64 | R$ 6,36 | R$ 24,77 | R$ 7,21 |
-| Valor no cenário pessimista | R$ 51,05 | −R$ 8,04 | R$ 11,19 | R$ 1,33 |
-| Valor no cenário moderado | R$ 84,07 | R$ 4,42 | R$ 21,04 | R$ 2,19 |
-| Valor no cenário otimista | R$ 138,61 | R$ 41,79 | R$ 40,45 | R$ 13,87 |
+| Valor no cenário pessimista | R$ 51,05 | −R$ 8,04 | R$ 11,23 | R$ 1,33 |
+| Valor no cenário moderado | R$ 84,07 | R$ 4,42 | R$ 21,12 | R$ 2,19 |
+| Valor no cenário otimista | R$ 138,61 | R$ 41,79 | R$ 40,63 | R$ 13,87 |
 | Moderado contra o preço | +24% | −31% | −15% | −70% |
+| Aviso: moderado contando obrigações fora da dívida | R$ 79,15 | −R$ 5,46 | igual | igual |
 | Margem EBITDA em 12 meses, sem baixas contábeis | 34,6% | 17,1% | 15,4% | 9,6% |
 | Dívida líquida ÷ EBITDA, sem baixas contábeis | 0,9 | 5,1 | 0,8 | caixa líquido |
 | Lucro líquido em 12 meses | R$ 8,7 bi | −R$ 2,0 bi | R$ 2,3 bi | −R$ 2,1 bi |
@@ -45,6 +46,12 @@ pessimista. A Gerdau e a Usiminas têm os balanços mais leves, mas as duas cust
 do que o modelo calcula no cenário moderado, e na Usiminas a distância é grande. Na CSN, a
 dívida líquida é quase do tamanho do valor da operação inteira, e por isso o valor da ação vai
 de negativo a R$ 41,79 conforme o cenário.
+
+Aviso: a Vale e a CSN têm obrigações grandes que o balanço não chama de dívida e que, por
+isso, não entram nos valores dos cenários. Na Vale são R$ 20,0 bilhões em provisões de
+Brumadinho e de Mariana. Na CSN são R$ 13,1 bilhões que ela já recebeu de clientes por
+produtos que ainda vai entregar. A linha de aviso da tabela mostra o valor moderado se as duas
+entrassem como dívida: a Vale continua 17% acima do preço e a CSN fica negativa.
 <!-- resumo:fim -->
 
 <!-- analise:inicio -->
@@ -116,7 +123,7 @@ negativo (−R$ 7,68). Pelos múltiplos de EBITDA e de EBIT das comparáveis tam
 O método ainda favorece a CSN em dois pontos. Ela tem o menor WACC das quatro (9,98%) porque
 86% do capital é dívida, e a dívida entra na conta a 8,5% ao ano depois do imposto, a mesma
 taxa das outras. É um efeito da fórmula. O risco da ação medido pelo beta é o maior das quatro:
-1,48, contra 1,02 da Usiminas, 0,79 da Gerdau e 0,76 da Vale. O segundo ponto é o que ficou
+1,48, contra 1,02 da Usiminas, 0,78 da Gerdau e 0,76 da Vale. O segundo ponto é o que ficou
 fora da dívida: a CSN já recebeu R$ 13,1 bilhões de clientes por produtos que ainda vai
 entregar. Se esse valor entrasse como dívida, o cenário moderado daria −R$ 5,46 por ação.
 
@@ -129,7 +136,7 @@ O problema está na margem. O EBITDA sem baixas contábeis caiu de 30% da receit
 13,4% em 2025, e está em 15,4% nos últimos doze meses. O lucro de 2025 foi de R$ 1,4 bilhão,
 depois de uma baixa de R$ 2,0 bilhões.
 
-O cenário moderado supõe que a margem volte a 19,7% até 2030 e chega a R$ 21,04 por ação, 15%
+O cenário moderado supõe que a margem volte a 19,7% até 2030 e chega a R$ 21,12 por ação, 15%
 abaixo dos R$ 24,77 da bolsa. A ação está perto da máxima de 52 semanas (R$ 26,31). O preço de
 hoje aparece no modelo quando a margem de 2030 chega a 21,6%, entre o cenário moderado e o
 otimista.
@@ -137,7 +144,7 @@ otimista.
 Os múltiplos ficam mais perto da bolsa: os preços implícitos vão de R$ 21,22 a R$ 28,56, e o
 preço de mercado está dentro dessa faixa.
 
-A Gerdau é também a menos ligada ao minério de ferro. Ele explica 14% da variação mensal da
+A Gerdau é também a menos ligada ao minério de ferro. Ele explica 13% da variação mensal da
 ação, contra 15% na Usiminas, 30% na CSN e 48% na Vale.
 
 ### Usiminas
@@ -293,12 +300,18 @@ como estavam.
 
 - A Usiminas passou de comparável a empresa do estudo, com projeção, DCF e cenários.
 - O investimento da Gerdau e da Usiminas estava menor do que é: a regra não achava as compras
-  de ativos intangíveis. Na Gerdau o cenário moderado foi de R$ 21,38 para R$ 21,04.
+  de ativos intangíveis. Na Gerdau o cenário moderado caiu de R$ 21,38 para R$ 21,04 só por isso.
 - A dívida líquida ÷ EBITDA passou a usar o EBITDA sem baixas contábeis, como a margem. Na
   Vale o número foi de 1,3 para 0,9.
 - Os múltiplos de EBITDA e de EBIT das comparáveis também passaram a ser sem baixas. Com a
   baixa de 2025, a Usiminas aparecia a 66 vezes o EBITDA.
 - Os dividendos pagos pela CSN em doze meses eram R$ 695 milhões, não R$ 906 milhões.
+- Faltava ajustar os preços da Gerdau pela bonificação de 5% de março de 2023 (uma ação nova
+  para cada vinte, para quem tinha o papel em 21/03/2023). Sem o ajuste o dia 22 contava como
+  uma queda de 4%. O beta foi de 0,79 para 0,78, e com as duas correções o cenário moderado
+  da Gerdau fecha em R$ 21,12.
+- As obrigações da Vale e da CSN que ficam fora da dívida passaram a aparecer como aviso, com
+  o valor que o cenário moderado teria se entrassem. Elas não mudam os valores dos cenários.
 
 Os valores da Vale e da CSN pelo fluxo de caixa não mudaram.
 
@@ -341,6 +354,6 @@ e o Node roda o JavaScript. Os dois são comparados com o Python linha a linha.
 - Arrendamentos entram na dívida só quando a empresa os registra junto dos empréstimos, como
   a Vale. Na Gerdau, na CSN e na Usiminas ficam de fora.
 - A parte dos sócios minoritários sai pelo valor contábil, não pelo de mercado.
-- Os preços são ajustados pela bonificação da Gerdau de 2024, mas não por dividendos. Isso
+- Os preços são ajustados pelas bonificações da Gerdau de 2023 e de 2024, mas não por dividendos. Isso
   afeta o beta e a correlação.
 - Fusões e aquisições e valuation pre e post-money ficaram fora do escopo.
