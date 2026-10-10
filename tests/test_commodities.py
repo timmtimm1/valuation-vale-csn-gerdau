@@ -29,6 +29,16 @@ def test_bonificacao_da_gerdau_nao_vira_queda(series: pd.DataFrame) -> None:
     assert variacao["2024-04"] > -0.10 and variacao["2024-05"] > -0.10
 
 
+def test_bonificacao_da_gerdau_de_2023_tambem_e_ajustada() -> None:
+    # 22/03/2023, primeiro pregão sem direito à bonificação de 5%: sem o ajuste o
+    # fechamento cai 4,4% num dia em que as outras siderúrgicas ficaram paradas.
+    from valuation.b3 import PRECOS_CSV, tabela_ajustada
+
+    precos = tabela_ajustada(pd.read_csv(PRECOS_CSV, parse_dates=["data"]))
+    variacao = precos[["GGBR4", "GGBR3"]].pct_change().loc["2023-03-22"]
+    assert (variacao.abs() < 0.01).all()
+
+
 def test_correlacao_dentro_dos_limites_e_r2_coerente(series: pd.DataFrame) -> None:
     resultado = commodities.correlacao(series)
     assert len(resultado) == 2 * len(FOCO)
