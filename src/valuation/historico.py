@@ -63,14 +63,26 @@ FLUXOS_FIXOS = {
     # A DVA tem código fixo para a depreciação; no fluxo de caixa cada empresa
     # usa uma linha diferente.
     "da": ("DVA", "7.04.01"),
+    # Reserva para quem entrega a DRE só com o resultado financeiro líquido (a Usiminas
+    # deixa 3.06.01 e 3.06.02 zeradas): a DVA abre a receita financeira e os juros.
+    "receitas_financeiras_dva": ("DVA", "7.06.02"),
+    "juros_dva": ("DVA", "7.08.03.01"),
 }
 
 # Abaixo do terceiro nível o fluxo de caixa é texto livre: classificamos pela descrição.
-_CAPEX = re.compile(r"imobilizado|intangivel")
+# "intangive" pega o singular e o plural: a Gerdau escreve "outros ativos intangíveis" e a
+# Usiminas "ativos intangíveis" e "software", e as duas ficavam com o capex menor do que é.
+_CAPEX = re.compile(r"imobilizad|intangive|software")
 _CAPEX_ACAO = re.compile(r"aquisic|adic|compra")
 _CAPEX_EXCLUI = re.compile(r"venda|alienac|baixa|receb")
 _DIVIDENDO = re.compile(r"dividend|juros s(?:obre|/) (?:o )?capital|jcp")
-_DIVIDENDO_EXCLUI = re.compile(r"receb")
+# "Antecipados" é dinheiro que entra (a CSN recebe adiantado da controlada), não que sai.
+_DIVIDENDO_EXCLUI = re.compile(r"receb|antecip")
+# A perda por recuperabilidade tem linha própria na DRE (3.04.03), mas nem toda empresa a
+# usa: a Usiminas lança em "outras despesas operacionais" e só a mostra no fluxo de caixa,
+# entre os ajustes do lucro. Perda de crédito ou de investimento não é baixa de ativo fixo.
+_IMPAIRMENT = re.compile(r"impairment|valor recuperavel de ativos|nao recuperabilidade de ativos")
+_IMPAIRMENT_EXCLUI = re.compile(r"financeir|investimento|credito")
 
 
 def _sem_acento(texto: str) -> str:
@@ -78,7 +90,7 @@ def _sem_acento(texto: str) -> str:
 
 
 def _fluxos_por_descricao(dfc: pd.DataFrame) -> pd.DataFrame:
-    """Soma capex e dividendos pagos a partir das linhas de 3º nível do fluxo de caixa."""
+    """Capex, dividendos pagos e baixas de ativos, achados pela descrição no fluxo de caixa."""
     nivel3 = dfc[dfc["cd_conta"].str.fullmatch(r"6\.0[23]\.\d{2}")].copy()
     desc = nivel3["ds_conta"].map(_sem_acento)
     pai = nivel3["cd_conta"].str[:4]
@@ -94,7 +106,14 @@ def _fluxos_por_descricao(dfc: pd.DataFrame) -> pd.DataFrame:
     nivel3["linha"] = None
     nivel3.loc[capex, "linha"] = "capex"
     nivel3.loc[dividendos, "linha"] = "dividendos_pagos"
-    return nivel3.dropna(subset=["linha"])
+
+    # Os ajustes do lucro ficam um nível abaixo, em 6.01.01.xx.
+    ajustes = dfc[dfc["cd_conta"].str.fullmatch(r"6\.01\.01\.\d{2}")].copy()
+    desc = ajustes["ds_conta"].map(_sem_acento)
+    baixa = desc.str.contains(_IMPAIRMENT) & ~desc.str.contains(_IMPAIRMENT_EXCLUI)
+    ajustes["linha"] = None
+    ajustes.loc[baixa, "linha"] = "impairment_no_fluxo"
+    return pd.concat([nivel3, ajustes]).dropna(subset=["linha"])
 
 
 def _linhas(contas: pd.DataFrame) -> pd.DataFrame:
@@ -132,7 +151,7 @@ def _acumulado(longa: pd.DataFrame, doc: str, dt_refer: str) -> pd.Series:
 
 def _periodos_de(longa: pd.DataFrame) -> pd.DataFrame:
     """Uma coluna por período para uma empresa: anos fechados e o LTM."""
-    fluxos = [*DRE, *FLUXOS_FIXOS, "capex", "dividendos_pagos"]
+    fluxos = [*DRE, *FLUXOS_FIXOS, "capex", "dividendos_pagos", "impairment_no_fluxo"]
     colunas: dict[str, pd.Series] = {}
     anuais = sorted(longa.loc[longa["doc"] == "DFP", "dt_refer"].unique())
     for dt in anuais:
@@ -165,6 +184,10 @@ def _indicadores(t: pd.DataFrame) -> pd.DataFrame:
     # A Vale entregou o custo de 2022 com sinal trocado (positivo) na DFP. Tirar o
     # custo da diferença entre lucro bruto e receita vale para todas e corrige o caso.
     t["custo"] = t["lucro_bruto"] - t["receita"]
+    sem_abertura = (t["receitas_financeiras"] == 0) & (t["despesas_financeiras"] == 0)
+    t.loc[sem_abertura, "receitas_financeiras"] = t["receitas_financeiras_dva"].abs()
+    t.loc[sem_abertura, "despesas_financeiras"] = -t["juros_dva"].abs()
+    t = t.drop(columns=["receitas_financeiras_dva", "juros_dva"])
     # Tudo que está em despesas operacionais e não é vendas, G&A nem equivalência:
     # provisões, impairment, ganhos e perdas não recorrentes.
     t["outras_operacionais"] = (
@@ -174,6 +197,12 @@ def _indicadores(t: pd.DataFrame) -> pd.DataFrame:
     # Perda por recuperabilidade (impairment) não sai do caixa nem se repete: a projeção
     # parte do EBITDA sem ela. Em 2025 foram R$ 25 bi na Vale e R$ 2 bi na Gerdau.
     t["perdas_recuperabilidade"] = t["perdas_recuperabilidade"].fillna(0.0)
+    # Quem não usa a linha da DRE: vale o ajuste do fluxo de caixa, que soma a perda de
+    # volta ao lucro (positivo). Aqui ela fica negativa, como despesa.
+    no_fluxo = t.get("impairment_no_fluxo", pd.Series(0.0, index=t.index)).fillna(0.0)
+    sem_linha_na_dre = t["perdas_recuperabilidade"] == 0
+    t.loc[sem_linha_na_dre, "perdas_recuperabilidade"] = -no_fluxo[sem_linha_na_dre]
+    t = t.drop(columns="impairment_no_fluxo", errors="ignore")
     t["ebitda_recorrente"] = t["ebitda"] - t["perdas_recuperabilidade"]
     # Despesas operacionais recorrentes: vendas, administrativas e outras, sem o impairment.
     t["despesas_recorrentes"] = -(
@@ -214,7 +243,10 @@ def _indicadores(t: pd.DataFrame) -> pd.DataFrame:
     t["prazo_pagamento"] = t["fornecedores"] / -t["custo_caixa"] * 365
     t["ciclo_caixa"] = t["prazo_recebimento"] + t["prazo_estoque"] - t["prazo_pagamento"]
 
-    t["divida_liquida_ebitda"] = t["divida_liquida"] / t["ebitda"]
+    # Sobre o EBITDA sem as baixas: uma perda contábil que não saiu do caixa não muda
+    # quantos anos de operação pagam a dívida. Com ela, a Vale de 2025 parecia dever 1,3
+    # vez o EBITDA quando deve 0,8.
+    t["divida_liquida_ebitda"] = t["divida_liquida"] / t["ebitda_recorrente"]
     t["liquidez_corrente"] = t["ativo_circulante"] / t["passivo_circulante"]
     t["roe"] = t["lucro_controladores"] / (t["patrimonio_liquido"] - t["minoritarios"])
     t["roic"] = t["nopat"] / t["capital_investido"]
