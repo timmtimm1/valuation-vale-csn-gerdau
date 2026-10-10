@@ -1,8 +1,7 @@
 # Valuation: Vale, CSN, Gerdau e Usiminas
 
 Quanto valem a Vale, a CSN, a Gerdau e a Usiminas? Montei este modelo para responder a essa
-pergunta com as três empresas que estudei no meu TCC e com a Usiminas, que entrou depois para
-completar as siderúrgicas. Usei só dados públicos: os balanços que elas entregam à CVM, as
+pergunta com as quatro empresas que estudei no meu TCC 3 anos atrás. Usei só dados públicos: os balanços que elas entregam à CVM, as
 cotações da B3 e os juros do Tesouro.
 
 O resultado está em dois formatos:
