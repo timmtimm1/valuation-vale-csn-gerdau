@@ -31,8 +31,11 @@ def calcular() -> pd.DataFrame:
     t["divida_liquida"] = ltm["divida_liquida"]
     t["minoritarios"] = ltm["minoritarios"]
     t["ev"] = t["valor_de_mercado"] + t["divida_liquida"] + t["minoritarios"]
-    t["ebitda"] = ltm["ebitda"]
-    t["ebit"] = ltm["ebit"]
+    # Sem as perdas por recuperabilidade, nas cinco: a baixa de um ano não diz quanto a
+    # operação gera, e com ela a Usiminas aparecia a 66 vezes o EBITDA. O lucro e o
+    # patrimônio ficam como divulgados, porque a baixa reduziu os dois de verdade.
+    t["ebitda"] = ltm["ebitda_recorrente"]
+    t["ebit"] = ltm["ebit"] - ltm["perdas_recuperabilidade"]
     t["lucro"] = ltm["lucro_controladores"]
     t["patrimonio"] = ltm["patrimonio_liquido"] - ltm["minoritarios"]
     t["ev_ebitda"] = t["ev"] / t["ebitda"]

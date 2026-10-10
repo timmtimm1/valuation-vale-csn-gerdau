@@ -65,7 +65,7 @@ LINHAS: dict[str, str] = {
     "caixa_total": "Caixa + aplicações financeiras.",
     "divida_bruta": "Empréstimos de curto prazo + empréstimos de longo prazo.",
     "divida_liquida": "Dívida bruta − caixa: o que a empresa deve depois de usar todo o dinheiro que tem.",
-    "divida_liquida_ebitda": "Dívida líquida ÷ EBITDA: quantos anos de geração de caixa pagam a dívida. Acima de 3x é alto.",
+    "divida_liquida_ebitda": "Dívida líquida ÷ EBITDA sem perdas por recuperabilidade: quantos anos de geração de caixa pagam a dívida. Acima de 3x é alto.",
     "liquidez_corrente": "Ativo circulante ÷ passivo circulante: acima de 1, o curto prazo está coberto.",
     "roe": "Lucro dos controladores ÷ patrimônio dos controladores: o retorno do dinheiro do sócio.",
     "roic": "NOPAT ÷ (capital de giro + ativo fixo): o retorno de todo o capital posto na operação.",
