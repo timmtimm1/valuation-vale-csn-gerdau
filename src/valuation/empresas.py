@@ -36,6 +36,8 @@ class Empresa:
     # procurado na descrição das contas do passivo, sem acento e em minúsculas.
     obrigacoes: str = ""
     obrigacoes_nome: str = ""
+    # Página de relações com investidores, para quem quiser conferir na própria empresa.
+    ri: str = ""
 
 
 EMPRESAS: tuple[Empresa, ...] = (
@@ -49,6 +51,7 @@ EMPRESAS: tuple[Empresa, ...] = (
         # A segunda conta é onde a Vale registra a reparação de Mariana (Samarco).
         obrigacoes=r"brumadinho|participacao em coligadas e joint ventures",
         obrigacoes_nome="provisões de Brumadinho e de Mariana (Samarco)",
+        ri="https://www.vale.com/pt/investidores",
     ),
     Empresa(
         "CSNA3",
@@ -59,12 +62,34 @@ EMPRESAS: tuple[Empresa, ...] = (
         # Até 2024 a conta se chamava "Adiantamento de clientes".
         obrigacoes=r"passivos de contratos|adiantamento de clientes",
         obrigacoes_nome="adiantamentos recebidos de clientes por produtos a entregar",
+        ri="https://ri.csn.com.br",
     ),
-    Empresa("GGBR4", "Gerdau", "33.611.500/0001-19", "Siderurgia", True, outros_tickers=("GGBR3",)),
     Empresa(
-        "USIM5", "Usiminas", "60.894.730/0001-05", "Siderurgia", True, outros_tickers=("USIM3",)
+        "GGBR4",
+        "Gerdau",
+        "33.611.500/0001-19",
+        "Siderurgia",
+        True,
+        outros_tickers=("GGBR3",),
+        ri="https://ri.gerdau.com",
     ),
-    Empresa("CMIN3", "CSN Mineração", "08.902.291/0001-15", "Mineração", False),
+    Empresa(
+        "USIM5",
+        "Usiminas",
+        "60.894.730/0001-05",
+        "Siderurgia",
+        True,
+        outros_tickers=("USIM3",),
+        ri="https://ri.usiminas.com",
+    ),
+    Empresa(
+        "CMIN3",
+        "CSN Mineração",
+        "08.902.291/0001-15",
+        "Mineração",
+        False,
+        ri="https://ri.csnmineracao.com.br",
+    ),
 )
 
 # Eventos que mudam o preço sem mudar o valor da empresa. Sem o ajuste, a bonificação
