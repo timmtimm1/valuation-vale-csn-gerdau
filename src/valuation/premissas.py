@@ -58,8 +58,9 @@ ESCALARES = {
     "capex_perpetuidade": "Capex na perpetuidade (múltiplo da depreciação)",
     "outros_ajustes": "Outros passivos tratados como dívida (R$ milhões)",
 }
-# O crescimento otimista vem do histórico, mas parte dele foi aquisição: fica limitado
-# a este tanto acima da inflação.
+# O crescimento otimista vem do histórico, mas nem todo ele se repete (parte foi
+# aquisição, parte foi o pico de preços de 2021): fica limitado a este tanto acima da
+# inflação.
 TETO_CRESCIMENTO_REAL = 0.04
 
 
@@ -115,8 +116,7 @@ def propor(ticker: str) -> dict[str, Any]:
     ) - 1
     teto = inflacao + TETO_CRESCIMENTO_REAL
     sobre_o_teto = (
-        f", limitado a {_pct(TETO_CRESCIMENTO_REAL, 0)} acima da inflação porque parte veio de"
-        " aquisições."
+        f", limitado a {_pct(TETO_CRESCIMENTO_REAL, 0).replace('%', ' pontos')} acima da inflação."
         if crescimento_historico > teto
         else "."
     )
@@ -186,7 +186,7 @@ def propor(ticker: str) -> dict[str, Any]:
         "aliquota_ir": escalar(historico.ALIQUOTA_IR, "Alíquota nominal: IRPJ 25% + CSLL 9%."),
         "custo_divida": escalar(
             m["juro_prefixado_longo"],
-            "A taxa do Tesouro prefixado de dez anos, a mesma para as três empresas."
+            "A taxa do Tesouro prefixado de dez anos, a mesma para todas as empresas."
             f" Custo implícito mediano 2023-2025: {_pct(implicito)}.",
         ),
         "rendimento_caixa": escalar(

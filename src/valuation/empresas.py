@@ -1,7 +1,7 @@
 """Cadastro das empresas do estudo.
 
-As três do TCC são o foco (`foco=True`): ganham projeção, DCF e planilha. As
-demais entram só como comparáveis no valuation por múltiplos.
+As três do TCC e a Usiminas são o foco (`foco=True`): ganham projeção, DCF e
+planilha. A CSN Mineração entra só como comparável no valuation por múltiplos.
 """
 
 from dataclasses import dataclass
@@ -38,7 +38,7 @@ EMPRESAS: tuple[Empresa, ...] = (
     Empresa("CSNA3", "CSN", "33.042.730/0001-04", "Siderurgia", True),
     Empresa("GGBR4", "Gerdau", "33.611.500/0001-19", "Siderurgia", True, outros_tickers=("GGBR3",)),
     Empresa(
-        "USIM5", "Usiminas", "60.894.730/0001-05", "Siderurgia", False, outros_tickers=("USIM3",)
+        "USIM5", "Usiminas", "60.894.730/0001-05", "Siderurgia", True, outros_tickers=("USIM3",)
     ),
     Empresa("CMIN3", "CSN Mineração", "08.902.291/0001-15", "Mineração", False),
 )

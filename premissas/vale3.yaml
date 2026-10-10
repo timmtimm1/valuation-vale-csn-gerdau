@@ -43,7 +43,7 @@ premissas:
     valores: [0.0, 0.0, 0.0, 0.0, 0.0]
     origem: Dívida bruta mantida no nível de 2025.
   aliquota_ir: {valor: 0.34, origem: 'Alíquota nominal: IRPJ 25% + CSLL 9%.'}
-  custo_divida: {valor: 0.1291, origem: 'A taxa do Tesouro prefixado de dez anos, a mesma para as três
+  custo_divida: {valor: 0.1291, origem: 'A taxa do Tesouro prefixado de dez anos, a mesma para todas as
       empresas. Custo implícito mediano 2023-2025: 17,8%.'}
   rendimento_caixa: {valor: 0.0936, origem: Mediana 2023-2025 da receita financeira sobre o caixa médio.}
   payout: {valor: 0.679, origem: 'Mediana 2021-2025 de dividendos pagos sobre lucro, limitada a 0-100%.'}

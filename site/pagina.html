@@ -1,4 +1,4 @@
-<title>Valuation Vale, CSN e Gerdau</title>
+<title>Valuation Vale, CSN, Gerdau e Usiminas</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
 /* Layout: painel de cenário fixo à esquerda, o estudo em seções numeradas à direita; uma coluna no celular. */
@@ -48,11 +48,16 @@ p { margin: 0; }
 .resumo { display: grid; gap: 12px; }
 .resumo p, .prosa p, .prosa li { max-width: 72ch; }
 .resumo p:first-of-type { color: var(--ink-3); font-size: 0.85rem; }
-/* A tabela do resumo tem de caber no celular sem rolar: três empresas lado a lado. */
+/* A tabela do resumo tem de caber no celular sem rolar: quatro empresas lado a lado. */
 .resumo table, .prosa table { max-width: 760px; }
 .resumo th, .resumo td { padding-inline: 6px; }
 .resumo th { white-space: normal; }
 .resumo th:first-child, .resumo td:first-child { min-width: 100px; }
+@media (max-width: 520px) {
+  .resumo table { font-size: 0.7rem; }
+  .resumo th, .resumo td { padding-inline: 3px; }
+  .resumo th:first-child, .resumo td:first-child { min-width: 0; width: 26%; }
+}
 .prosa { display: grid; gap: 12px; line-height: 1.6; }
 .prosa h3 { font-family: var(--display); font-stretch: 88%; font-weight: 700; font-size: 1.05rem; margin: 14px 0 0; }
 .prosa h3:first-child { margin-top: 0; }
@@ -140,8 +145,8 @@ a { color: var(--accent); }
 <div class="wrap">
   <header>
     <p class="eyebrow">Mineração e siderurgia · B3 · R$ milhões</p>
-    <h1>Quanto valem Vale, CSN e Gerdau?</h1>
-    <p class="lede">Montei este modelo com os balanços que as três empresas entregam à CVM e as cotações da B3. Abaixo está o que encontrei. Depois, escolha a empresa e o cenário, mexa nas três variáveis e veja o preço por ação mudar.</p>
+    <h1>Quanto valem Vale, CSN, Gerdau e Usiminas?</h1>
+    <p class="lede">Montei este modelo com os balanços que as quatro empresas entregam à CVM e as cotações da B3. Abaixo está o que encontrei. Depois, escolha a empresa e o cenário, mexa nas três variáveis e veja o preço por ação mudar.</p>
   </header>
 
   <section class="resumo cartao" aria-label="Resumo da análise">
@@ -180,7 +185,7 @@ a { color: var(--accent); }
 
       <section class="bloco" id="indicadores">
         <h2><span class="n">3</span>EBIT, EBITDA, NOPAT e indicadores</h2>
-        <p>EBITDA é o EBIT mais a depreciação. NOPAT é o lucro operacional depois do imposto, antes dos juros. Em 2025 a Vale e a Gerdau registraram perdas por recuperabilidade que não saem do caixa; a linha sem elas é a que serve de base para a projeção.</p>
+        <p>EBITDA é o EBIT mais a depreciação. NOPAT é o lucro operacional depois do imposto, antes dos juros. Em 2025 a Vale, a Gerdau e a Usiminas registraram perdas por recuperabilidade que não saem do caixa; a linha sem elas é a que serve de base para a projeção.</p>
         <div class="cartao rolagem" id="t-indicadores"></div>
       </section>
 
@@ -262,7 +267,7 @@ a { color: var(--accent); }
       </section>
 
       <section class="bloco" id="analise">
-        <h2><span class="n">15</span>Análise: qual das três se destaca</h2>
+        <h2><span class="n">15</span>Análise: qual das quatro se destaca</h2>
         <div class="cartao prosa"><!--__ANALISE__--></div>
       </section>
 
